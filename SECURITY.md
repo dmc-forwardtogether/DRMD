@@ -17,7 +17,7 @@ are provided for the latest release only.
 Instead, report them privately via:
 
 - 📧 Email: [xian9qianqi@yandex.com](mailto:xian9qianqi@yandex.com)
-- 🐛 GitHub: [Report a vulnerability](https://github.com/xiangqianqi/drmd/security/advisories/new)
+- 🐛 GitHub: [Report a vulnerability](https://github.com/dmc-forwardtogether/DRMD/security/advisories/new)
 
 ### What to expect
 

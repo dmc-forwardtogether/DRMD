@@ -78,7 +78,7 @@ graph TD
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/your-org/drmd.git
+git clone https://github.com/dmc-forwardtogether/DRMD.git
 cd drmd
 npm install
 ```
