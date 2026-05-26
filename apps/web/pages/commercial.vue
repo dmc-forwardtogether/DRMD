@@ -146,7 +146,7 @@ async function openBrandDetail(b: Brand): Promise<void> {
   expandedRegions.value = new Set()
   loadingStores.value = true
   try {
-    brandStores.value = await $fetch(`${configBase}/brands/${b.id}/structures?projectId=1`)
+    brandStores.value = await $fetch<any[]>(`${configBase}/brands/${b.id}/structures?projectId=1`)
     if (brandStores.value.length > 0) {
       expandedRegions.value.add(brandStores.value[0].province || "未知")
     }
@@ -405,7 +405,7 @@ async function fetchCategories(): Promise<void> {
   try { categories.value = await $fetch<StructureCategory[]>(`${configBase}/categories`) } catch { /* */ }
 }
 async function fetchDistricts(): Promise<void> {
-  try { districts.value = await $fetch(`${configBase}/districts`) } catch { districts.value = [] }
+  try { districts.value = await $fetch<any[]>(`${configBase}/districts`) } catch { districts.value = [] }
 }
 
 onMounted(async () => {

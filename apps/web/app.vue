@@ -4,6 +4,7 @@
 </template>
 
 <script setup lang="ts">
+import ToastContainer from '~/components/ToastContainer.vue'
 import { registerToast, useToast } from '~/composables/useToast'
 
 const toastRef = ref<InstanceType<typeof ToastContainer>>()

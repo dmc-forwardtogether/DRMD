@@ -306,7 +306,7 @@ async function saveCatName(cat: StructureCategory): Promise<void> {
 
 async function openSettings(): Promise<void> {
   settingsOpen.value = true
-  try { allDistricts.value = await $fetch(`${configBase}/districts?limit=500`) } catch { allDistricts.value = [] }
+  try { allDistricts.value = await $fetch<any[]>(`${configBase}/districts?limit=500`) } catch { allDistricts.value = [] }
 }
 function resetDistrictForm(): void {
   districtForm.code = ""; districtForm.name = ""; districtForm.level = "district"
@@ -317,13 +317,13 @@ async function saveDistrict(): Promise<void> {
   try {
     await $fetch(`${configBase}/districts`, { method: "POST", body: districtForm })
     districtFormOpen.value = false
-    allDistricts.value = await $fetch(`${configBase}/districts?limit=500`)
+    allDistricts.value = await $fetch<any[]>(`${configBase}/districts?limit=500`)
   } catch { /* */ }
 }
 async function deleteDistrict(code: string): Promise<void> {
   if (!confirm(`删除行政区 ${code}？`)) return
   await $fetch(`${configBase}/districts/${code}`, { method: "DELETE" })
-  allDistricts.value = await $fetch(`${configBase}/districts?limit=500`)
+  allDistricts.value = await $fetch<any[]>(`${configBase}/districts?limit=500`)
 }
 const filteredDistricts = computed(() => {
   if (!districtSearch.value) return allDistricts.value
@@ -361,6 +361,13 @@ function brandIcon(brand?: { name: string; icon?: string | null } | null): strin
     if (brand.name.includes(key)) return icon
   }
   return '🏷️'
+}
+
+/** 获取当前选中建筑的关联品牌（模板中安全使用，避免 null 闭包问题） */
+function currentBrand(): Brand | undefined {
+  const s = selectedStructure.value
+  if (!s?.brandId) return undefined
+  return brands.value.find(b => b.id === s.brandId)
 }
 
 function brandTypeBadgeClass(type?: string): string {
@@ -529,16 +536,16 @@ onMounted(async () => {
 
                   <!-- View mode -->
                     <template v-if="!isEditing">
-                    <div v-if="selectedStructure.brandName" class="space-y-2">
+                    <div v-if="selectedStructure && selectedStructure.brandName" class="space-y-2">
                       <div class="flex items-center gap-2">
-                        <span class="text-2xl">{{ brandIcon(brands.find(b => b.id === selectedStructure.brandId)) }}</span>
+                        <span class="text-2xl">{{ brandIcon(currentBrand()) }}</span>
                         <div>
                           <p class="font-semibold text-slate-800">{{ selectedStructure.brandName }}</p>
                           <p class="text-xs text-slate-500">
-                            {{ brands.find(b => b.id === selectedStructure.brandId)?.entityName || '' }}
-                            <span v-if="brands.find(b => b.id === selectedStructure.brandId)?.brandType" class="ml-1 px-1 py-0.5 rounded text-xs font-medium"
-                              :class="brandTypeBadgeClass(brands.find(b => b.id === selectedStructure.brandId)?.brandType)">
-                              {{ brandTypeLabel(brands.find(b => b.id === selectedStructure.brandId)?.brandType) }}
+                            {{ currentBrand()?.entityName || '' }}
+                            <span v-if="currentBrand()?.brandType" class="ml-1 px-1 py-0.5 rounded text-xs font-medium"
+                              :class="brandTypeBadgeClass(currentBrand()?.brandType)">
+                              {{ brandTypeLabel(currentBrand()?.brandType) }}
                             </span>
                           </p>
                         </div>
@@ -548,11 +555,11 @@ onMounted(async () => {
                     <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
                       <div class="bg-white rounded-lg p-2 border border-slate-100">
                         <p class="text-slate-400">营运主体</p>
-                        <p class="font-medium text-slate-700">{{ selectedStructure.operatorEntityName || '—' }}</p>
+                        <p class="font-medium text-slate-700">{{ selectedStructure?.operatorEntityName || '—' }}</p>
                     </div>
                     <div class="bg-white rounded-lg p-2 border border-slate-100">
                       <p class="text-slate-400">业主方</p>
-                      <p class="font-medium text-slate-700">{{ selectedStructure.ownerEntityName || '—' }}</p>
+                      <p class="font-medium text-slate-700">{{ selectedStructure?.ownerEntityName || '—' }}</p>
                     </div>
                   </div>
                   </template>
