@@ -75,46 +75,48 @@ SELECT setval('entities_id_seq', (SELECT COALESCE(MAX(id), 0) FROM entities));
 
 -- ============================================================
 -- Brands (品牌)
+-- 使用 ON CONFLICT (entity_id, name) 兼容旧数据库已有数据
+-- 先尝试 UPSERT 已有品牌（更新评分），再插入新品牌
 -- ============================================================
 
--- 商场品牌系列 (owner brands)
-INSERT INTO brands (id, name, entity_id, brand_type, sort_order) VALUES
-  (1,  '万达广场',   1,  'owner', 1),
-  (2,  '万象城',     2,  'owner', 2),
-  (3,  '万象天地',   2,  'owner', 3),
-  (4,  '大悦城',     3,  'owner', 4),
-  (5,  'K11',        4,  'owner', 5),
-  (6,  '太古里',     5,  'owner', 6),
-  (7,  'IFC/IFS',    6,  'owner', 7),
-  (8,  '来福士',     7,  'owner', 8),
-  (9,  '恒隆广场',   8,  'owner', 9),
-  (10, '龙湖天街',   9,  'owner', 10),
-  (11, '印象城',     10, 'owner', 11)
-ON CONFLICT (id) DO NOTHING;
+-- 商场品牌系列 (owner brands) — 不指定 ID，让序列自动生成
+INSERT INTO brands (name, entity_id, brand_type, sort_order) VALUES
+  ('万达广场',   1,  'owner', 1),
+  ('万象城',     2,  'owner', 2),
+  ('万象天地',   2,  'owner', 3),
+  ('大悦城',     3,  'owner', 4),
+  ('K11',        4,  'owner', 5),
+  ('太古里',     5,  'owner', 6),
+  ('IFC/IFS',    6,  'owner', 7),
+  ('来福士',     7,  'owner', 8),
+  ('恒隆广场',   8,  'owner', 9),
+  ('龙湖天街',   9,  'owner', 10),
+  ('印象城',     10, 'owner', 11)
+ON CONFLICT (entity_id, name) DO NOTHING;
 
--- 店铺品牌 (customer brands)
-INSERT INTO brands (id, name, entity_id, brand_type, influence_score, avg_spend_score, topic_score, sort_order, category) VALUES
+-- 店铺品牌 (customer brands) — 不指定 ID，让序列自动生成
+INSERT INTO brands (name, entity_id, brand_type, influence_score, avg_spend_score, topic_score, sort_order, category) VALUES
   -- 餐饮
-  (20, '星巴克',      20, 'customer', 8, 5, 7,  1, '餐饮'),
-  (21, '喜茶',        21, 'customer', 7, 4, 8,  2, '餐饮'),
-  (22, '海底捞',      27, 'customer', 8, 7, 8,  3, '餐饮'),
-  (23, '麦当劳',      29, 'customer', 9, 3, 8,  4, '餐饮'),
-  (24, '肯德基',      30, 'customer', 9, 4, 8,  5, '餐饮'),
-  (25, '奈雪的茶',    25, 'customer', 6, 4, 7,  6, '餐饮'),
-  (26, '霸王茶姬',    32, 'customer', 6, 4, 8,  7, '餐饮'),
+  ('星巴克',      20, 'customer', 8, 5, 7,  1, '餐饮'),
+  ('喜茶',        21, 'customer', 7, 4, 8,  2, '餐饮'),
+  ('海底捞',      27, 'customer', 8, 7, 8,  3, '餐饮'),
+  ('麦当劳',      29, 'customer', 9, 3, 8,  4, '餐饮'),
+  ('肯德基',      30, 'customer', 9, 4, 8,  5, '餐饮'),
+  ('奈雪的茶',    25, 'customer', 6, 4, 7,  6, '餐饮'),
+  ('霸王茶姬',    32, 'customer', 6, 4, 8,  7, '餐饮'),
   -- 零售
-  (30, 'Apple Store', 22, 'customer', 10, 8, 9, 10, '数码'),
-  (31, '优衣库',      24, 'customer', 7, 5, 6,  11, '服饰'),
-  (32, 'ZARA',        28, 'customer', 7, 6, 6,  12, '服饰'),
-  (33, '無印良品',    23, 'customer', 7, 6, 5,  13, '生活'),
-  (34, '迪卡侬',      33, 'customer', 8, 5, 6,  14, '运动'),
-  (35, '乐高',        34, 'customer', 8, 7, 8,  15, '玩具'),
-  (36, '泡泡玛特',    26, 'customer', 6, 5, 9,  16, '潮玩'),
-  (37, '蔚来汽车',    31, 'customer', 8, 9, 8,  17, '汽车'),
+  ('Apple Store', 22, 'customer', 10, 8, 9, 10, '数码'),
+  ('优衣库',      24, 'customer', 7, 5, 6,  11, '服饰'),
+  ('ZARA',        28, 'customer', 7, 6, 6,  12, '服饰'),
+  ('無印良品',    23, 'customer', 7, 6, 5,  13, '生活'),
+  ('迪卡侬',      33, 'customer', 8, 5, 6,  14, '运动'),
+  ('乐高',        34, 'customer', 8, 7, 8,  15, '玩具'),
+  ('泡泡玛特',    26, 'customer', 6, 5, 9,  16, '潮玩'),
+  ('蔚来汽车',    31, 'customer', 8, 9, 8,  17, '汽车'),
   -- 服务
-  (40, '海马体',      35, 'customer', 5, 6, 7,  20, '摄影'),
-  (41, '西西弗书店',  36, 'customer', 7, 5, 7,  21, '书店')
-ON CONFLICT (id) DO NOTHING;
+  ('海马体',      35, 'customer', 5, 6, 7,  20, '摄影'),
+  ('西西弗书店',  36, 'customer', 7, 5, 7,  21, '书店')
+ON CONFLICT (entity_id, name) DO NOTHING;
 
 SELECT setval('brands_id_seq', (SELECT COALESCE(MAX(id), 0) FROM brands));
 
