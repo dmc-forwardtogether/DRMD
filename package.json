@@ -1,0 +1,20 @@
+{
+  "name": "drmd",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
+    "dev:web": "npm --workspace @drmd/web run dev",
+    "dev:server": "npm --workspace @drmd/server run dev",
+    "build": "npm run --workspaces build",
+    "typecheck": "npm run --workspaces typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1",
+    "typescript": "^5.7.3"
+  }
+}

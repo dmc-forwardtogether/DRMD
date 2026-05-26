@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: drmd-postgis
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: drmd
+      POSTGRES_USER: drmd
+      POSTGRES_PASSWORD: drmd
+    ports:
+      - "5433:5432"
+    volumes:
+      - drmd_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U drmd -d drmd"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  drmd_pg_data:
