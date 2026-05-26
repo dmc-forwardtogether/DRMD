@@ -2,15 +2,33 @@ import express from "express"
 import type { FeatureCollection, Geometry } from "geojson"
 import { z } from "zod"
 import { inferFeatureKind, InvalidIdError } from "@drmd/shared-types"
+import type { BBox, OsmImportResponse, ProjectCreateRequest, ProjectCreateResponse, ProjectLayer, ProjectLayersResponse } from "@drmd/shared-types"
+import { ROAD_CLASS_LABELS, ROAD_CLASS_COLORS } from "@drmd/shared-types"
 import { pool } from "../db.js"
 import { getGraphSummary, rebuildRoadGraph } from "../services/graphBuilder.js"
 import { AMAP_CATEGORY_MAP, AMAP_SEARCH_TYPES, buildAmapUrl } from "../services/amapService.js"
+import { cityToBBox, importOsmData } from "../services/osmService.js"
 
 const router = express.Router()
 
+const bboxSchema = z.object({
+  south: z.number().min(-90).max(90),
+  west: z.number().min(-180).max(180),
+  north: z.number().min(-90).max(90),
+  east: z.number().min(-180).max(180)
+})
+
 const projectCreateSchema = z.object({
   name: z.string().min(1).max(120),
-  srid: z.number().int().positive().default(4326)
+  srid: z.number().int().positive().default(4326),
+  sourceType: z.enum(["manual", "admin_district", "bbox"]).optional(),
+  districtCode: z.string().optional(),
+  bbox: bboxSchema.optional(),
+  importOsm: z.boolean().optional().default(true),
+  osmOptions: z.object({
+    includeBuildings: z.boolean().optional().default(true),
+    includeLanduse: z.boolean().optional().default(true)
+  }).optional().default({})
 })
 
 const geoJsonGeometrySchema = z.object({
@@ -50,7 +68,15 @@ router.get("/projects", async (_req, res, next) => {
   try {
     const result = await pool.query(
       `
-        SELECT id, name, srid, created_at, updated_at
+        SELECT
+          id, name, srid,
+          source_type AS "sourceType",
+          district_code AS "districtCode",
+          ST_AsGeoJSON(bounds)::json AS bounds,
+          osm_imported_at AS "osmImportedAt",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt",
+          (SELECT COUNT(*) FROM features WHERE features.project_id = projects.id)::int AS "featureCount"
         FROM projects
         ORDER BY id DESC
       `
@@ -63,16 +89,136 @@ router.get("/projects", async (_req, res, next) => {
 
 router.post("/projects", async (req, res, next) => {
   try {
-    const payload = projectCreateSchema.parse(req.body)
+    const payload = projectCreateSchema.parse(req.body) as ProjectCreateRequest
+
+    // 计算项目空间范围
+    let boundsWkt: string | null = null
+    let sourceType = payload.sourceType || "manual"
+
+    if (payload.sourceType === "admin_district" && payload.districtCode) {
+      // 从行政区划表获取 bounds
+      const district = await pool.query<{ geom: Geometry }>(
+        `SELECT ST_AsText(geom) AS geom FROM admin_districts WHERE code = $1`,
+        [payload.districtCode]
+      )
+      if (district.rowCount && district.rows[0].geom) {
+        boundsWkt = district.rows[0].geom as unknown as string
+      } else {
+        // 回退: 使用已知城市坐标
+        const cityBbox = cityToBBox(payload.districtCode)
+        if (cityBbox) {
+          boundsWkt = `POLYGON((${cityBbox.west} ${cityBbox.south},${cityBbox.east} ${cityBbox.south},${cityBbox.east} ${cityBbox.north},${cityBbox.west} ${cityBbox.north},${cityBbox.west} ${cityBbox.south}))`
+        }
+      }
+    } else if (payload.sourceType === "bbox" && payload.bbox) {
+      const { south, west, north, east } = payload.bbox
+      boundsWkt = `POLYGON((${west} ${south},${east} ${south},${east} ${north},${west} ${north},${west} ${south}))`
+    }
+
+    // 插入项目
+    const boundsParam = boundsWkt
+      ? `ST_SetSRID(ST_GeomFromText('${boundsWkt}'), 4326)`
+      : "NULL"
+
     const result = await pool.query(
       `
-        INSERT INTO projects(name, srid)
-        VALUES ($1, $2)
-        RETURNING id, name, srid, created_at, updated_at
+        INSERT INTO projects(name, srid, source_type, district_code, bounds)
+        VALUES ($1, $2, $3, $4, ${boundsParam})
+        RETURNING id, name, srid, source_type AS "sourceType",
+                  district_code AS "districtCode",
+                  ST_AsGeoJSON(bounds)::json AS bounds,
+                  created_at AS "createdAt", updated_at AS "updatedAt"
       `,
-      [payload.name, payload.srid]
+      [payload.name, payload.srid || 4326, sourceType, payload.districtCode || null]
     )
-    res.status(201).json({ project: result.rows[0] })
+
+    const project = result.rows[0]
+
+    // 自动导入 OSM 数据
+    let importResult: ProjectCreateResponse["importResult"] = null
+    const shouldImport = payload.importOsm !== false && boundsWkt
+
+    if (shouldImport) {
+      try {
+        const bbox = payload.bbox || (
+          payload.sourceType === "admin_district"
+            ? cityToBBox(payload.districtCode!)
+            : null
+        )
+
+        if (bbox) {
+          const osmResult = await importOsmData({
+            ...bbox,
+            includeBuildings: payload.osmOptions?.includeBuildings ?? true,
+            includeLanduse: payload.osmOptions?.includeLanduse ?? true
+          })
+
+          // 批量插入 OSM features
+          if (osmResult.features.length > 0) {
+            const client = await pool.connect()
+            try {
+              await client.query("BEGIN")
+
+              for (const feature of osmResult.features) {
+                const props = feature.properties || {}
+                const kind = inferFeatureKind(
+                  feature.geometry.type,
+                  props.kind as string | undefined
+                )
+
+                await client.query(
+                  `INSERT INTO features(project_id, feature_type, geom, props, osm_id, osm_tags)
+                   VALUES ($1, $2,
+                     ST_SetSRID(ST_GeomFromGeoJSON($3), 4326),
+                     $4::jsonb, $5, $6::jsonb)`,
+                  [
+                    project.id,
+                    kind,
+                    JSON.stringify(feature.geometry),
+                    JSON.stringify(props),
+                    props.osmId || null,
+                    props.osmTags ? JSON.stringify(props.osmTags) : null
+                  ]
+                )
+              }
+
+              await client.query(
+                `UPDATE projects SET osm_imported_at = NOW() WHERE id = $1`,
+                [project.id]
+              )
+
+              await client.query("COMMIT")
+            } catch (error) {
+              await client.query("ROLLBACK")
+              throw error
+            } finally {
+              client.release()
+            }
+
+            importResult = {
+              featuresImported: osmResult.features.length,
+              stats: osmResult.stats,
+              warnings: osmResult.warnings
+            }
+          } else {
+            importResult = {
+              featuresImported: 0,
+              stats: { roads: 0, railways: 0, waterways: 0, buildings: 0, landuse: 0 },
+              warnings: osmResult.warnings
+            }
+          }
+        }
+      } catch (osmError) {
+        console.error("[projects] OSM import failed:", osmError)
+        importResult = {
+          featuresImported: 0,
+          stats: { roads: 0, railways: 0, waterways: 0, buildings: 0, landuse: 0 },
+          warnings: [`OSM import failed: ${(osmError as Error).message}. You can re-import later.`]
+        }
+      }
+    }
+
+    res.status(201).json({ project, importResult } satisfies ProjectCreateResponse)
   } catch (error) {
     next(error)
   }
@@ -94,6 +240,227 @@ router.get("/projects/:projectId", async (req, res, next) => {
       return
     }
     res.json({ project: result.rows[0] })
+  } catch (error) {
+    next(error)
+  }
+})
+
+// ===== OSM 导入（对已有项目重新/追加导入） =====
+
+const osmImportSchema = z.object({
+  bbox: bboxSchema.optional(),
+  districtCode: z.string().optional(),
+  includeBuildings: z.boolean().optional().default(true),
+  includeLanduse: z.boolean().optional().default(true),
+  /** 是否清除旧 OSM 数据再导入 (默认 false = 追加) */
+  replaceExisting: z.boolean().optional().default(false)
+})
+
+router.post("/projects/:projectId/import-osm", async (req, res, next) => {
+  try {
+    const projectId = toPositiveInt(req.params.projectId)
+    const payload = osmImportSchema.parse(req.body)
+
+    // 获取或计算 BBox
+    let bboxOpts: { south: number; west: number; north: number; east: number } | null = null
+
+    if (payload.bbox) {
+      bboxOpts = payload.bbox
+    } else if (payload.districtCode) {
+      const cityBbox = cityToBBox(payload.districtCode)
+      if (!cityBbox) {
+        res.status(400).json({ error: `Unknown district: ${payload.districtCode}` })
+        return
+      }
+      bboxOpts = { ...cityBbox }
+    } else {
+      // 从项目 bounds 读取
+      const proj = await pool.query<{ bounds: Geometry | null }>(
+        `SELECT ST_AsGeoJSON(bounds)::json AS bounds FROM projects WHERE id = $1`,
+        [projectId]
+      )
+      if (!proj.rowCount || !proj.rows[0].bounds) {
+        res.status(400).json({ error: "Project has no bounds. Provide bbox or districtCode." })
+        return
+      }
+      const poly = proj.rows[0].bounds as { coordinates: number[][][] }
+      const ring = poly.coordinates[0]
+      const lngs = ring.map((c) => c[0])
+      const lats = ring.map((c) => c[1])
+      bboxOpts = {
+        west: Math.min(...lngs),
+        east: Math.max(...lngs),
+        south: Math.min(...lats),
+        north: Math.max(...lats)
+      }
+    }
+
+    // 可选：清除旧 OSM 数据
+    if (payload.replaceExisting) {
+      await pool.query(
+        `DELETE FROM features WHERE project_id = $1 AND osm_id IS NOT NULL`,
+        [projectId]
+      )
+    }
+
+    // 执行 OSM 导入
+    const osmResult = await importOsmData({
+      ...bboxOpts,
+      includeBuildings: payload.includeBuildings,
+      includeLanduse: payload.includeLanduse
+    })
+
+    let insertedCount = 0
+    if (osmResult.features.length > 0) {
+      const client = await pool.connect()
+      try {
+        await client.query("BEGIN")
+
+        for (const feature of osmResult.features) {
+          const props = feature.properties || {}
+          const kind = inferFeatureKind(
+            feature.geometry.type,
+            props.kind as string | undefined
+          )
+
+          await client.query(
+            `INSERT INTO features(project_id, feature_type, geom, props, osm_id, osm_tags)
+             VALUES ($1, $2,
+               ST_SetSRID(ST_GeomFromGeoJSON($3), 4326),
+               $4::jsonb, $5, $6::jsonb)`,
+            [
+              projectId,
+              kind,
+              JSON.stringify(feature.geometry),
+              JSON.stringify(props),
+              props.osmId || null,
+              props.osmTags ? JSON.stringify(props.osmTags) : null
+            ]
+          )
+          insertedCount++
+        }
+
+        await client.query(
+          `UPDATE projects SET osm_imported_at = NOW() WHERE id = $1`,
+          [projectId]
+        )
+
+        await client.query("COMMIT")
+      } catch (error) {
+        await client.query("ROLLBACK")
+        throw error
+      } finally {
+        client.release()
+      }
+    }
+
+    const response: OsmImportResponse = {
+      featuresImported: insertedCount,
+      stats: osmResult.stats,
+      warnings: osmResult.warnings
+    }
+
+    res.json(response)
+  } catch (error) {
+    next(error)
+  }
+})
+
+// ===== 项目图层列表（按路网类型分图层） =====
+
+router.get("/projects/:projectId/layers", async (req, res, next) => {
+  try {
+    const projectId = toPositiveInt(req.params.projectId)
+
+    // 统计各类型 feature 数量
+    const result = await pool.query<{
+      feature_type: string
+      road_class: string | null
+      count: number
+    }>(
+      `SELECT
+         f.feature_type,
+         f.props->>'roadClass' AS road_class,
+         COUNT(*)::int AS count
+       FROM features f
+       WHERE f.project_id = $1
+       GROUP BY f.feature_type, f.props->>'roadClass'
+       ORDER BY count DESC`,
+      [projectId]
+    )
+
+    // 构建图层列表
+    const layerMap = new Map<string, ProjectLayer>()
+
+    // 预定义图层顺序和颜色
+    const layerDefinitions: Array<{ id: string; label: string; match: (ft: string, rc: string | null) => boolean; color: string }> = [
+      { id: "road_motorway", label: "高速公路", match: (_ft, rc) => rc === "motorway", color: ROAD_CLASS_COLORS.motorway },
+      { id: "road_trunk", label: "快速路", match: (_ft, rc) => rc === "trunk", color: ROAD_CLASS_COLORS.trunk },
+      { id: "road_primary", label: "主干道", match: (_ft, rc) => rc === "primary", color: ROAD_CLASS_COLORS.primary },
+      { id: "road_secondary", label: "次干道", match: (_ft, rc) => rc === "secondary", color: ROAD_CLASS_COLORS.secondary },
+      { id: "road_tertiary", label: "支路", match: (_ft, rc) => rc === "tertiary", color: ROAD_CLASS_COLORS.tertiary },
+      { id: "road_residential", label: "街坊路", match: (_ft, rc) => rc === "residential", color: ROAD_CLASS_COLORS.residential },
+      { id: "road_service", label: "服务路", match: (_ft, rc) => rc === "service", color: ROAD_CLASS_COLORS.service },
+      { id: "road_pedestrian", label: "步道", match: (_ft, rc) => rc === "pedestrian", color: ROAD_CLASS_COLORS.pedestrian },
+      { id: "railway", label: "轨道", match: (_ft, rc) => rc?.startsWith("rail_") ?? false, color: ROAD_CLASS_COLORS.rail_hsr },
+      { id: "waterway", label: "水系", match: (_ft, rc) => rc?.startsWith("water_") ?? false, color: ROAD_CLASS_COLORS.water_river },
+      { id: "parcel", label: "地块", match: (ft, _rc) => ft.startsWith("parcel_"), color: "#22c55e" },
+      { id: "building", label: "建筑", match: (_ft, rc) => !rc, color: "#64748b" },
+      { id: "poi", label: "POI", match: (ft, _rc) => ft === "poi", color: "#3b82f6" }
+    ]
+
+    // 初始化图层
+    for (const def of layerDefinitions) {
+      layerMap.set(def.id, {
+        layerId: def.id,
+        label: def.label,
+        featureType: def.id,
+        featureCount: 0,
+        visible: true,
+        color: def.color
+      })
+    }
+
+    // 统计
+    let unclassifiedCount = 0
+    for (const row of result.rows) {
+      let matched = false
+      for (const def of layerDefinitions) {
+        if (def.match(row.feature_type, row.road_class)) {
+          const layer = layerMap.get(def.id)!
+          layer.featureCount += row.count
+          matched = true
+          break
+        }
+      }
+      if (!matched) {
+        unclassifiedCount += row.count
+      }
+    }
+
+    // 如存在未分类的，归入 "其他"
+    if (unclassifiedCount > 0) {
+      layerMap.set("other", {
+        layerId: "other",
+        label: "其他",
+        featureType: "other",
+        featureCount: unclassifiedCount,
+        visible: true,
+        color: "#94a3b8"
+      })
+    }
+
+    // 移除空图层
+    const layers = [...layerMap.values()].filter((l) => l.featureCount > 0)
+    const totalFeatures = layers.reduce((sum, l) => sum + l.featureCount, 0)
+
+    const response: ProjectLayersResponse = {
+      projectId,
+      layers,
+      totalFeatures
+    }
+
+    res.json(response)
   } catch (error) {
     next(error)
   }

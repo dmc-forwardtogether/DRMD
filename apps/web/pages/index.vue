@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DrawMode, FeatureKind, FeatureProperties, KindStyleConfig, MallProfile, SavedProject, SelectedFeatureInfo } from "~/types"
+import type { ProjectCreateResponse } from "@drmd/shared-types"
 import { useEditorStore } from "~/store/editor.store"
 import { useToast } from "~/composables/useToast"
 
@@ -8,32 +9,70 @@ const toast = useToast()
 const { public: { apiBase } } = useRuntimeConfig()
 const mapRef = ref<{ loadData: (data: GeoJSON.FeatureCollection) => void; updateProperties: (id: string, properties: FeatureProperties) => void; deleteSelected: () => void; clearAll: () => void; applyKindStyles: () => void; centerToCurrentLocation: () => Promise<void>; updateFeatureId: (oldId: string, newId: string) => void } | null>(null)
 
-const activeMode = ref<DrawMode>("select")
-const activeKind = ref<FeatureKind>("parcel_commercial")
-const selectedFeature = ref<SelectedFeatureInfo | null>(null)
-const statusMessage = ref("")
-let statusTimer: ReturnType<typeof setTimeout> | null = null
+// ===== 视图状态 =====
+type ViewMode = "dashboard" | "editor"
+const viewMode = ref<ViewMode>("dashboard")
 
-// Project state
-interface ProjectItem { id: number; name: string; srid: number; createdAt: string; updatedAt: string }
+// ===== Dashboard 状态 =====
+interface ProjectItem {
+  id: number; name: string; srid: number
+  sourceType?: string; districtCode?: string
+  bounds?: GeoJSON.Polygon | null
+  osmImportedAt?: string | null
+  featureCount: number
+  createdAt: string; updatedAt: string
+}
 const projects = ref<ProjectItem[]>([])
-const currentProjectId = ref<number | null>(null)
 const projectsLoading = ref(false)
+const showCreateDialog = ref(false)
+const creatingProject = ref(false)
+const createError = ref("")
 
 async function fetchProjects(): Promise<void> {
   projectsLoading.value = true
   try {
     const res = await $fetch<{ projects: ProjectItem[] }>(`${apiBase}/api/projects`)
     projects.value = res.projects || []
-    if (projects.value.length > 0 && currentProjectId.value === null) {
-      currentProjectId.value = projects.value[0].id
-    }
   } catch (error) {
     console.error("Failed to fetch projects", error)
   } finally {
     projectsLoading.value = false
   }
 }
+
+async function handleProjectCreated(response: ProjectCreateResponse): Promise<void> {
+  creatingProject.value = true
+  createError.value = ""
+  try {
+    showCreateDialog.value = false
+    await fetchProjects()
+    // 自动进入新项目
+    openProject(response.project.id)
+  } catch (error) {
+    createError.value = error instanceof Error ? error.message : "Failed to create project"
+  } finally {
+    creatingProject.value = false
+  }
+}
+
+function openProject(projectId: number): void {
+  currentProjectId.value = projectId
+  viewMode.value = "editor"
+}
+
+function backToDashboard(): void {
+  viewMode.value = "dashboard"
+  currentProjectId.value = null
+  selectedFeature.value = null
+}
+
+// ===== Editor 状态 =====
+const activeMode = ref<DrawMode>("select")
+const activeKind = ref<FeatureKind>("parcel_commercial")
+const selectedFeature = ref<SelectedFeatureInfo | null>(null)
+const statusMessage = ref("")
+let statusTimer: ReturnType<typeof setTimeout> | null = null
+const currentProjectId = ref<number | null>(null)
 
 // 当项目ID变更 且 mapRef 就绪时，自动加载features到地图
 watch([currentProjectId, mapRef], ([pid, _mapRef]) => {
@@ -53,27 +92,6 @@ async function loadProjectFeatures(projectId: number): Promise<void> {
     showStatus(`Loaded project #${projectId}`)
   } catch (error) {
     showStatus("Failed to load project features", "error")
-  }
-}
-
-async function selectProject(projectId: number): Promise<void> {
-  currentProjectId.value = projectId
-  // watch 会自动触发 loadProjectFeatures
-}
-
-async function createProject(): Promise<void> {
-  const name = window.prompt("Project name:", "New Project")
-  if (!name) return
-  try {
-    const res = await $fetch<{ project: ProjectItem }>(`${apiBase}/api/projects`, {
-      method: "POST",
-      body: { name, srid: 4326 }
-    })
-    await fetchProjects()
-    currentProjectId.value = res.project.id
-    showStatus(`Created project: ${res.project.name}`, "success")
-  } catch (error) {
-    showStatus("Failed to create project", "error")
   }
 }
 
@@ -242,6 +260,104 @@ onUnmounted(() => {
 
 <template>
   <main class="h-screen w-screen flex bg-slate-100">
+
+    <!-- ========== DASHBOARD VIEW ========== -->
+    <div v-if="viewMode === 'dashboard'" class="w-full h-full overflow-auto">
+      <!-- Header -->
+      <header class="bg-white border-b border-slate-200 px-8 py-5">
+        <div class="max-w-6xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 class="text-2xl font-bold text-slate-900">DRMD</h1>
+            <p class="text-sm text-slate-500 mt-0.5">Urban Scenario Simulation Platform</p>
+          </div>
+          <button
+            class="bg-slate-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors shadow-sm flex items-center gap-2"
+            @click="showCreateDialog = true"
+          >
+            <span class="text-lg">+</span> 创建新项目
+          </button>
+        </div>
+      </header>
+
+      <!-- Project List -->
+      <div class="max-w-6xl mx-auto px-8 py-8">
+        <!-- Loading -->
+        <div v-if="projectsLoading" class="text-center py-16 text-slate-400">
+          <div class="animate-spin w-8 h-8 border-2 border-slate-300 border-t-slate-600 rounded-full mx-auto mb-3" />
+          <p class="text-sm">加载项目列表...</p>
+        </div>
+
+        <!-- Empty State -->
+        <div v-else-if="projects.length === 0" class="text-center py-16">
+          <div class="text-5xl mb-4">🗺️</div>
+          <h2 class="text-lg font-semibold text-slate-700 mb-2">还没有项目</h2>
+          <p class="text-sm text-slate-500 mb-6 max-w-md mx-auto">
+            创建你的第一个项目，选择城市区域，DRMD 将自动从 OpenStreetMap 导入路网、建筑和地块数据。
+          </p>
+          <button
+            class="bg-slate-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors"
+            @click="showCreateDialog = true"
+          >
+            开始创建
+          </button>
+        </div>
+
+        <!-- Project Cards -->
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <article
+            v-for="project in projects"
+            :key="project.id"
+            class="bg-white border border-slate-200 rounded-xl p-5 hover:border-slate-400 hover:shadow-md transition-all cursor-pointer group"
+            @click="openProject(project.id)"
+          >
+            <div class="flex items-start justify-between mb-3">
+              <h3 class="font-semibold text-slate-900 group-hover:text-slate-700">{{ project.name }}</h3>
+              <span
+                v-if="project.osmImportedAt"
+                class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium"
+              >OSM ✓</span>
+              <span
+                v-else
+                class="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium"
+              >空项目</span>
+            </div>
+
+            <div class="space-y-1.5 text-xs text-slate-500">
+              <div class="flex justify-between">
+                <span>要素数量</span>
+                <span class="font-mono text-slate-700">{{ project.featureCount ?? 0 }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span>创建方式</span>
+                <span class="font-mono text-slate-700">
+                  {{ project.sourceType === 'admin_district' ? '行政区' : project.sourceType === 'bbox' ? '框选' : '手动' }}
+                </span>
+              </div>
+              <div class="flex justify-between">
+                <span>创建时间</span>
+                <span class="font-mono text-slate-700">{{ new Date(project.createdAt).toLocaleDateString('zh-CN') }}</span>
+              </div>
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-100 flex justify-end">
+              <span class="text-xs text-blue-600 group-hover:text-blue-800 font-medium">打开项目 →</span>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <!-- Create Dialog -->
+      <ProjectCreateDialog
+        :visible="showCreateDialog"
+        :loading="creatingProject"
+        :error="createError"
+        @close="showCreateDialog = false; createError = ''"
+        @created="handleProjectCreated"
+      />
+    </div>
+
+    <!-- ========== EDITOR VIEW ========== -->
+    <template v-if="viewMode === 'editor'">
     <DrawToolbar
       :active-mode="activeMode"
       :active-kind="activeKind"
@@ -261,20 +377,24 @@ onUnmounted(() => {
     />
 
     <section class="relative flex-1">
-      <!-- 顶部栏：项目选择 + 统计 -->
+      <!-- 顶部栏 -->
       <div class="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-white/95 border border-slate-200 rounded-xl shadow-panel px-4 py-2 flex items-center gap-3">
-        <!-- Project 切换下拉 -->
+        <button
+          class="text-xs text-slate-500 hover:text-slate-700 font-medium flex items-center gap-1"
+          @click="backToDashboard"
+        >← 项目列表</button>
+        <span class="text-slate-300">|</span>
         <select
           :value="currentProjectId ?? ''"
           class="text-sm font-medium bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none cursor-pointer"
-          @change="selectProject(Number(($event.target as HTMLSelectElement).value))"
+          @change="openProject(Number(($event.target as HTMLSelectElement).value))"
         >
           <option value="" disabled>Select Project</option>
           <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.name }}</option>
         </select>
         <button
           class="text-xs text-blue-600 hover:text-blue-800 font-medium"
-          @click="createProject"
+          @click="showCreateDialog = true"
         >+ New</button>
 
         <span class="text-slate-300">|</span>
@@ -334,5 +454,6 @@ onUnmounted(() => {
         @fetch-poi="handleFetchPoi"
       />
     </section>
+    </template>
   </main>
 </template>

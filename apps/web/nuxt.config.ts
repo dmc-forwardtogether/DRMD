@@ -10,7 +10,7 @@ export default defineNuxtConfig({
   },
   app: {
     head: {
-      title: "DRMD Editor",
+      title: "DRMD",
       viewport: "width=device-width,initial-scale=1",
       meta: [
         { name: "description", content: "DRMD OSM-like map editor" }
