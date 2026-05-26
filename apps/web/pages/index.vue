@@ -45,6 +45,40 @@ async function fetchProjects(): Promise<void> {
 
 async function handleProjectCreated(response: ProjectCreateResponse): Promise<void> {
   creatingProject.value = true
+  createError.value = ""
+  try {
+    showCreateDialog.value = false
+    await fetchProjects()
+    // 自动进入新项目
+    openProject(response.project.id)
+  } catch (error) {
+    createError.value = error instanceof Error ? error.message : "Failed to create project"
+  } finally {
+    creatingProject.value = false
+  }
+}
+
+function openProject(projectId: number): void {
+  currentProjectId.value = projectId
+  viewMode.value = "editor"
+}
+
+function backToDashboard(): void {
+  viewMode.value = "dashboard"
+  currentProjectId.value = null
+  selectedFeature.value = null
+}
+
+// ===== Editor 状态 =====
+const activeMode = ref<DrawMode>("select")
+const activeKind = ref<FeatureKind>("parcel_commercial")
+const selectedFeature = ref<SelectedFeatureInfo | null>(null)
+const statusMessage = ref("")
+let statusTimer: ReturnType<typeof setTimeout> | null = null
+const currentProjectId = ref<number | null>(null)
+
+async function handleProjectCreated(response: ProjectCreateResponse): Promise<void> {
+  creatingProject.value = true
   newProjectError.value = ""
   try {
     showCreateDialog.value = false
