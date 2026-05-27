@@ -3,6 +3,8 @@ import { X } from "lucide-vue-next"
 import type { FeatureKind, FeatureProperties, MallProfile, PoiCategory, SelectedFeatureInfo, Structure, Entity, Brand } from "~/types"
 import { useEditorStore } from "~/store/editor.store"
 import { useToast } from "~/composables/useToast"
+import AppIcon from "~/components/AppIcon.vue"
+import { subtypeIcon, subtypeLabel, kindIcon, kindLabel as kindLabelUtil } from "~/utils/icons"
 
 const toast = useToast()
 
@@ -81,16 +83,16 @@ const linkSaving = ref(false)
 const allStructureOptions = ref<{ id: number; name: string; subtype: string; brandName?: string }[]>([])
 
 const structureSubtypes = [
-  { value: "mall", label: "商场" }, { value: "road", label: "道路" },
-  { value: "school", label: "学校" }, { value: "park", label: "公园" },
-  { value: "river", label: "水系" }, { value: "office", label: "写字楼" },
-  { value: "residential", label: "住宅" }, { value: "shop", label: "店铺" },
-  { value: "other", label: "其他" },
+  { value: "mall", label: "Mall" }, { value: "road", label: "Road" },
+  { value: "school", label: "School" }, { value: "park", label: "Park" },
+  { value: "river", label: "Waterway" }, { value: "office", label: "Office" },
+  { value: "residential", label: "Residential" }, { value: "shop", label: "Shop" },
+  { value: "other", label: "Other" },
 ]
 const structureTypes = [
-  { value: "constructed" as const, label: "人工" },
-  { value: "natural" as const, label: "自然" },
-  { value: "hybrid" as const, label: "混合" },
+  { value: "constructed" as const, label: "Constructed" },
+  { value: "natural" as const, label: "Natural" },
+  { value: "hybrid" as const, label: "Hybrid" },
 ]
 
 // ===== Create Building Dialog =====
@@ -109,27 +111,27 @@ const createBuildingSaving = ref(false)
 const suggestedSubtypes = computed(() => {
   if (kind.value === "parcel_commercial" || kind.value === "commercial") {
     return [
-      { value: "mall", label: "🏬 商场", desc: "大型商业综合体" },
-      { value: "office", label: "🏢 写字楼", desc: "办公建筑" },
-      { value: "shop", label: "🏪 店铺", desc: "独立零售店铺" },
+      { value: "mall", label: "商场", desc: "Shopping complex" },
+      { value: "office", label: "写字楼", desc: "Office building" },
+      { value: "shop", label: "店铺", desc: "Retail store" },
     ]
   }
   if (kind.value === "parcel_residential" || kind.value === "residential") {
     return [
-      { value: "residential", label: "🏠 住宅", desc: "居住建筑" },
-      { value: "shop", label: "🏪 底商", desc: "住宅底商" },
+      { value: "residential", label: "住宅", desc: "Residential building" },
+      { value: "shop", label: "零售", desc: "Ground-floor retail" },
     ]
   }
   if (kind.value === "parcel_mixed") {
     return [
-      { value: "mall", label: "🏬 商场", desc: "商业综合体" },
-      { value: "office", label: "🏢 写字楼", desc: "办公建筑" },
-      { value: "residential", label: "🏠 住宅", desc: "居住建筑" },
-      { value: "shop", label: "🏪 店铺", desc: "零售店铺" },
+      { value: "mall", label: "商场", desc: "Shopping complex" },
+      { value: "office", label: "写字楼", desc: "Office building" },
+      { value: "residential", label: "住宅", desc: "Residential building" },
+      { value: "shop", label: "店铺", desc: "Retail store" },
     ]
   }
   if (kind.value === "road") {
-    return [{ value: "road", label: "🛣️ 道路", desc: "交通道路" }]
+    return [{ value: "road", label: "道路", desc: "Traffic route" }]
   }
   return structureSubtypes.map(s => ({ value: s.value, label: s.label, desc: "" }))
 })
@@ -509,19 +511,19 @@ function entityLabel(e: Entity): string {
     <div class="flex border-b border-slate-100 shrink-0">
       <button
         v-for="tab in [
-          { key: 'properties' as PanelTab, label: '属性', icon: '📋' },
-          { key: 'config' as PanelTab, label: '配置', icon: '⚙' },
-          { key: 'scores' as PanelTab, label: '评分', icon: '⭐' },
-          { key: 'children' as PanelTab, label: '子项', icon: '🏪' },
+          { key: 'properties' as PanelTab, label: '属性', iconName: 'entity' },
+          { key: 'config' as PanelTab, label: '配置', iconName: 'mall' },
+          { key: 'scores' as PanelTab, label: '评分', iconName: 'score' },
+          { key: 'children' as PanelTab, label: '子项', iconName: 'shop' },
         ]"
         :key="tab.key"
-        class="flex-1 py-2 text-xs font-medium transition-colors border-b-2"
+        class="flex-1 py-2 text-xs font-medium transition-colors border-b-2 flex items-center justify-center gap-1"
         :class="activeTab === tab.key
           ? 'border-slate-900 text-slate-900'
           : 'border-transparent text-slate-400 hover:text-slate-600'"
         @click="activeTab = tab.key"
       >
-        {{ tab.icon }} {{ tab.label }}
+        <AppIcon :name="tab.iconName" :size="13" /> {{ tab.label }}
       </button>
     </div>
 
@@ -790,7 +792,10 @@ function entityLabel(e: Entity): string {
                       : 'border-slate-200 hover:border-slate-300'"
                     @click="createBuildingForm.structureSubtype = s.value"
                   >
-                    <div class="text-sm font-medium text-slate-700">{{ s.label }}</div>
+                    <div class="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                      <AppIcon :name="subtypeIcon(s.value)" :size="14" />
+                      {{ s.label }}
+                    </div>
                     <div v-if="s.desc" class="text-xs text-slate-400 mt-0.5">{{ s.desc }}</div>
                   </button>
                 </div>
