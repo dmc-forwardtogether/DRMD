@@ -90,6 +90,7 @@ const baseStyles: BaseStyle[] = [
 ]
 
 const currentStyleId = ref("dark")
+const baseStyleOpen = ref(false)
 
 function switchBaseStyle(styleId: string): void {
   if (!map || styleId === currentStyleId.value) return
@@ -148,24 +149,52 @@ function desiredDrawModeByKind(kind: FeatureKind): "draw_point" | "draw_line_str
 
 function syncActiveDrawColors(): void {
   if (!map || !draw) return
-  // Re-apply styles after every draw.set() to ensure paint properties match
-  // Use ["get","color"] so each feature's color comes from its own properties
-  const data = draw.getAll()
-  const kindColorMap = new Map<string, string>()
-  for (const [kind, cfg] of kindStyleMap.value) {
-    kindColorMap.set(kind, cfg.color)
+
+  // 1) Build match expression mapping ALL known kind values → colors
+  //    Include both old ("commercial") and new ("parcel_commercial") formats
+  const matchPairs: unknown[] = []
+  const oldToNew: Record<string, string> = {
+    residential: "parcel_residential",
+    commercial: "parcel_commercial"
   }
-  // Update each feature's color from its kind
+  for (const [kind, cfg] of kindStyleMap.value) {
+    matchPairs.push(kind, cfg.color)
+    // Also map old format → same color
+    for (const [old, mapped] of Object.entries(oldToNew)) {
+      if (mapped === kind) matchPairs.push(old, cfg.color)
+    }
+  }
+  const fallback = "#cccccc"
+  const polygonMatch: unknown[] = ["match", ["get", "kind"], ...matchPairs, fallback]
+  const lineMatch: unknown[]   = ["match", ["get", "kind"], ...matchPairs, "#555555"]
+  const pointMatch: unknown[]  = ["match", ["get", "kind"], ...matchPairs, "#3b82f6"]
+
+  // 2) Set paint properties directly on MapLibre layers (MapboxDraw layers)
+  for (const id of ["drmd-polygon-fill", "drmd-polygon-stroke"]) {
+    if (map.getLayer(id)) {
+      const prop = id.endsWith("fill") ? "fill-color" : "line-color"
+      map.setPaintProperty(id, prop, polygonMatch)
+    }
+  }
+  if (map.getLayer("drmd-line-stroke")) {
+    map.setPaintProperty("drmd-line-stroke", "line-color", lineMatch)
+  }
+  if (map.getLayer("drmd-point-circle")) {
+    map.setPaintProperty("drmd-point-circle", "circle-color", pointMatch)
+  }
+
+  // 3) Also normalize kind + color on feature properties (keeps data consistent)
+  const data = draw.getAll()
   const updated = data.features.map((f) => {
-    const props = (f.properties || {}) as Record<string, unknown>
-    const kind = inferFeatureKind(f.geometry.type, props.kind as string | undefined)
+    const p = { ...(f.properties || {}) } as Record<string, unknown>
+    const kind = inferFeatureKind(f.geometry.type, p.kind as string | undefined)
     const cfg = kindStyleMap.value.get(kind)
     if (cfg) {
-      props.color = cfg.color
-      props.hidden = !cfg.visible
-      props.kind = kind
+      p.kind = kind
+      p.color = cfg.color
+      p.hidden = !cfg.visible
     }
-    return { ...f, properties: props }
+    return { ...f, properties: p }
   })
 
   suppressSelection = true
@@ -173,6 +202,14 @@ function syncActiveDrawColors(): void {
     draw.set({ type: "FeatureCollection", features: updated })
   } finally {
     suppressSelection = false
+  }
+
+  // 4) Re-apply paint after draw.set() in case it reset the properties
+  for (const id of ["drmd-polygon-fill", "drmd-polygon-stroke"]) {
+    if (map.getLayer(id)) {
+      const prop = id.endsWith("fill") ? "fill-color" : "line-color"
+      map.setPaintProperty(id, prop, polygonMatch)
+    }
   }
 }
 
@@ -348,7 +385,7 @@ onMounted(async () => {
         type: "fill",
         filter: ["all", ["==", "$type", "Polygon"], ["!=", "hidden", true]],
         paint: {
-          "fill-color": ["coalesce", ["get", "color"], "#cccccc"],
+          "fill-color": "#cccccc",
           "fill-opacity": 0.35
         }
       },
@@ -358,7 +395,7 @@ onMounted(async () => {
         filter: ["all", ["==", "$type", "Polygon"], ["!=", "hidden", true]],
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": ["coalesce", ["get", "color"], "#999999"],
+          "line-color": "#999999",
           "line-width": 2.5
         }
       },
@@ -368,7 +405,7 @@ onMounted(async () => {
         filter: ["all", ["==", "$type", "LineString"], ["!=", "hidden", true]],
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": ["coalesce", ["get", "color"], "#555555"],
+          "line-color": "#555555",
           "line-width": 3.5
         }
       },
@@ -378,7 +415,7 @@ onMounted(async () => {
         filter: ["all", ["==", "$type", "Point"], ["==", "meta", "feature"], ["!=", "hidden", true]],
         paint: {
           "circle-radius": 8,
-          "circle-color": ["coalesce", ["get", "color"], "#3b82f6"],
+          "circle-color": "#3b82f6",
           "circle-stroke-width": 2.5,
           "circle-stroke-color": "#ffffff"
         }
@@ -602,22 +639,36 @@ onUnmounted(() => {
 <template>
   <div ref="mapContainer" class="w-full h-full" />
 
-  <!-- 底图切换器 -->
-  <div class="absolute bottom-16 right-2 z-20 flex flex-col gap-1 bg-slate-900/80 backdrop-blur-sm rounded-lg p-1 shadow-lg border border-slate-700/50">
+  <!-- 底图切换器 (collapsible) -->
+  <div class="absolute bottom-4 right-2 z-20">
+    <!-- Collapsed: single button -->
     <button
-      v-for="style in baseStyles"
-      :key="style.id"
-      :class="[
-        'flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-all',
-        currentStyleId === style.id
-          ? 'bg-white/20 text-white shadow-sm'
-          : 'text-slate-400 hover:text-white hover:bg-white/10'
-      ]"
-      :title="style.label"
-      @click="switchBaseStyle(style.id)"
+      v-if="!baseStyleOpen"
+      class="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-medium bg-slate-900/80 backdrop-blur-sm text-white shadow-lg border border-slate-700/50 hover:bg-slate-800 transition-all"
+      @click="baseStyleOpen = true"
     >
-      <span class="text-sm">{{ style.icon }}</span>
-      <span>{{ style.label }}</span>
+      <span class="text-sm">{{ baseStyles.find(s => s.id === currentStyleId)?.icon || '🗺️' }}</span>
     </button>
+    <!-- Expanded: full list -->
+    <div
+      v-else
+      class="flex flex-col gap-0.5 bg-slate-900/80 backdrop-blur-sm rounded-lg p-1 shadow-lg border border-slate-700/50"
+    >
+      <button
+        v-for="style in baseStyles"
+        :key="style.id"
+        :class="[
+          'flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-all',
+          currentStyleId === style.id
+            ? 'bg-white/20 text-white shadow-sm'
+            : 'text-slate-400 hover:text-white hover:bg-white/10'
+        ]"
+        :title="style.label"
+        @click="switchBaseStyle(style.id); baseStyleOpen = false"
+      >
+        <span class="text-sm">{{ style.icon }}</span>
+        <span>{{ style.label }}</span>
+      </button>
+    </div>
   </div>
 </template>
