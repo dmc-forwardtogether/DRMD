@@ -90,7 +90,7 @@ const activeKind = ref<FeatureKind>("parcel_commercial")
 const selectedFeature = ref<SelectedFeatureInfo | null>(null)
 const statusMessage = ref("")
 let statusTimer: ReturnType<typeof setTimeout> | null = null
-const allowedKinds: FeatureKind[] = ["parcel_residential", "parcel_public", "parcel_commercial", "parcel_industrial", "parcel_logistics", "parcel_transport", "parcel_green", "parcel_water", "parcel_mixed", "road"]
+const allowedKinds: FeatureKind[] = ["parcel_residential", "parcel_public", "parcel_commercial", "parcel_industrial", "parcel_transport", "parcel_green", "parcel_water", "road"]
 
 // 首次加载：读 hash → 拉项目信息 → 等 map + projectName 就绪后加载
 const hasHash = ref(false)
@@ -147,6 +147,10 @@ function handleModeChange(mode: DrawMode): void { activeMode.value = mode }
 function handleKindChange(kind: FeatureKind): void { activeKind.value = kind }
 function handleMapUpdate(features: GeoJSON.FeatureCollection): void { store.updateFeatures(features) }
 function handleMapSelection(feature: SelectedFeatureInfo | null): void { selectedFeature.value = feature }
+
+function handleRefresh(): void {
+  loadProjectFeatures(projectId.value)
+}
 
 function handleKindStylesChange(styles: KindStyleConfig[]): void {
   store.setKindStyles(styles)
@@ -208,17 +212,15 @@ async function handleFetchPoi(_featureId: string, lat: number, lng: number): Pro
 }
 
 const drawingHint = computed(() => {
-  if (activeMode.value === "select") return "Select mode: click a feature to edit its properties."
+  if (activeMode.value === "select") return ""
   if (activeKind.value === "road") return "Road: click to add waypoints, double-click to finish."
   if (activeKind.value === "parcel_residential") return "Residential (R): click to draw boundary, double-click to close."
   if (activeKind.value === "parcel_public") return "Public (A): click to draw boundary, double-click to close."
   if (activeKind.value === "parcel_commercial") return "Commercial (B): click to draw boundary, double-click to close."
   if (activeKind.value === "parcel_industrial") return "Industrial (M): click to draw boundary, double-click to close."
-  if (activeKind.value === "parcel_logistics") return "Logistics (W): click to draw boundary, double-click to close."
   if (activeKind.value === "parcel_transport") return "Transport (S): click to draw boundary, double-click to close."
   if (activeKind.value === "parcel_green") return "Green (G): click to draw boundary, double-click to close."
   if (activeKind.value === "parcel_water") return "Water (E): click to draw boundary, double-click to close."
-  if (activeKind.value === "parcel_mixed") return "Mixed-use: click to draw boundary, double-click to close."
   return "Parcel: click to add polygon vertices, double-click to close."
 })
 
@@ -269,6 +271,14 @@ onUnmounted(() => {
       :active-kind="activeKind"
       :allowed-kinds="allowedKinds"
       :kind-styles="store.kindStyles"
+      :project-name="projectName"
+      :feature-count="store.featureCount"
+      :count-by-kind="{
+        parcel_residential: store.residentialCount,
+        parcel_commercial: store.commercialCount,
+        parcel_industrial: store.roadCount,
+        road: store.roadCount,
+      }"
       @mode-change="handleModeChange"
       @kind-change="handleKindChange"
       @kind-styles-change="handleKindStylesChange"
@@ -277,28 +287,10 @@ onUnmounted(() => {
       @clear-all="mapRef?.clearAll(); activeMode = 'select'"
       @save="store.saveToFile()"
       @load="handleLoad"
+      @refresh="handleRefresh"
     />
 
     <section class="relative flex-1">
-      <!-- 顶部栏 -->
-      <div class="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-white/95 border border-slate-200 rounded-xl shadow-panel px-4 py-2 flex items-center gap-3">
-        <NuxtLink
-          to="/"
-          class="text-xs text-slate-500 hover:text-slate-700 font-medium flex items-center gap-1"
-        >← Projects</NuxtLink>
-        <span class="text-slate-300">|</span>
-        <span class="text-sm font-medium text-slate-900">{{ projectName || `Project #${projectId}` }}</span>
-        <span class="text-slate-300">|</span>
-        <span class="text-xs text-slate-500">Total: {{ store.featureCount }}</span>
-        <span class="text-xs text-emerald-600">R: {{ store.residentialCount }}</span>
-        <span class="text-xs text-teal-600">C: {{ store.commercialCount }}</span>
-        <span class="text-xs text-violet-600">M: {{ store.mixedCount }}</span>
-        <span class="text-xs text-orange-600">Rd: {{ store.roadCount }}</span>
-        <span class="text-slate-300">|</span>
-        <NuxtLink to="/buildings" class="text-xs text-purple-600 hover:text-purple-800 font-medium flex items-center gap-1">🏢 Buildings</NuxtLink>
-        <NuxtLink to="/commercial" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">🏷️ Commercial</NuxtLink>
-      </div>
-
       <!-- 状态消息 -->
       <div v-if="statusMessage" class="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-slate-900 text-white rounded-lg px-4 py-2 text-xs shadow-lg">
         {{ statusMessage }}

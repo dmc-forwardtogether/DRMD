@@ -107,9 +107,8 @@ const LANDUSE_PARCEL_MAP: Record<string, string> = {
   commercial: "parcel_commercial",
   retail: "parcel_commercial",
   industrial: "parcel_industrial",
-  mixed: "parcel_mixed",
-  construction: "parcel_mixed",
-  brownfield: "parcel_mixed",
+  construction: "parcel_industrial",
+  brownfield: "parcel_industrial",
   greenfield: "parcel_residential"
 }
 
