@@ -61,32 +61,6 @@ function openProject(projectId: number): void {
   navigateTo(`/project/${projectId}`)
 }
 
-// ===== Editor 状态 =====
-const activeMode = ref<DrawMode>("select")
-const activeKind = ref<FeatureKind>("parcel_commercial")
-const selectedFeature = ref<SelectedFeatureInfo | null>(null)
-const statusMessage = ref("")
-let statusTimer: ReturnType<typeof setTimeout> | null = null
-const currentProjectId = ref<number | null>(null)
-
-async function handleProjectCreated(response: ProjectCreateResponse): Promise<void> {
-  creatingProject.value = true
-  newProjectError.value = ""
-  try {
-    showCreateDialog.value = false
-    await fetchProjects()
-    await navigateTo(`/project/${response.project.id}`)
-  } catch (error) {
-    newProjectError.value = error instanceof Error ? error.message : "Failed to create project"
-  } finally {
-    creatingProject.value = false
-  }
-}
-
-function openProject(projectId: number): void {
-  navigateTo(`/project/${projectId}`)
-}
-
 // ===== 编辑 =====
 
 function startEdit(project: ProjectItem, event: Event): void {
