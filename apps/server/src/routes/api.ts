@@ -1,4 +1,5 @@
 import express from "express"
+import rateLimit from "express-rate-limit"
 import type { FeatureCollection, Geometry } from "geojson"
 import { z } from "zod"
 import { inferFeatureKind, InvalidIdError } from "@drmd/shared-types"
@@ -10,6 +11,13 @@ import { AMAP_CATEGORY_MAP, AMAP_SEARCH_TYPES, buildAmapUrl } from "../services/
 import { cityToBBox, importOsmData } from "../services/osmService.js"
 
 const router = express.Router()
+
+const projectLayersLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false
+})
 
 const bboxSchema = z.object({
   south: z.number().min(-90).max(90),
@@ -458,7 +466,7 @@ router.post("/projects/:projectId/import-osm", async (req, res, next) => {
 
 // ===== 项目图层列表（按路网类型分图层） =====
 
-router.get("/projects/:projectId/layers", async (req, res, next) => {
+router.get("/projects/:projectId/layers", projectLayersLimiter, async (req, res, next) => {
   try {
     const projectId = toPositiveInt(req.params.projectId)
 
