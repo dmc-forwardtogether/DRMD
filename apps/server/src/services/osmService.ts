@@ -106,7 +106,7 @@ const LANDUSE_PARCEL_MAP: Record<string, string> = {
   residential: "parcel_residential",
   commercial: "parcel_commercial",
   retail: "parcel_commercial",
-  industrial: "parcel_mixed",       // v0.3.0 后改为 parcel_industrial
+  industrial: "parcel_industrial",
   mixed: "parcel_mixed",
   construction: "parcel_mixed",
   brownfield: "parcel_mixed",

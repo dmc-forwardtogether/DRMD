@@ -90,7 +90,7 @@ const activeKind = ref<FeatureKind>("parcel_commercial")
 const selectedFeature = ref<SelectedFeatureInfo | null>(null)
 const statusMessage = ref("")
 let statusTimer: ReturnType<typeof setTimeout> | null = null
-const allowedKinds: FeatureKind[] = ["parcel_residential", "parcel_commercial", "parcel_mixed", "road"]
+const allowedKinds: FeatureKind[] = ["parcel_residential", "parcel_public", "parcel_commercial", "parcel_industrial", "parcel_logistics", "parcel_transport", "parcel_green", "parcel_water", "parcel_mixed", "road"]
 
 // 首次加载：读 hash → 拉项目信息 → 等 map + projectName 就绪后加载
 const hasHash = ref(false)
@@ -210,8 +210,14 @@ async function handleFetchPoi(_featureId: string, lat: number, lng: number): Pro
 const drawingHint = computed(() => {
   if (activeMode.value === "select") return "Select mode: click a feature to edit its properties."
   if (activeKind.value === "road") return "Road: click to add waypoints, double-click to finish."
-  if (activeKind.value === "parcel_commercial") return "Commercial: click to draw boundary, double-click to close."
-  if (activeKind.value === "parcel_residential") return "Residential: click to draw boundary, double-click to close."
+  if (activeKind.value === "parcel_residential") return "Residential (R): click to draw boundary, double-click to close."
+  if (activeKind.value === "parcel_public") return "Public (A): click to draw boundary, double-click to close."
+  if (activeKind.value === "parcel_commercial") return "Commercial (B): click to draw boundary, double-click to close."
+  if (activeKind.value === "parcel_industrial") return "Industrial (M): click to draw boundary, double-click to close."
+  if (activeKind.value === "parcel_logistics") return "Logistics (W): click to draw boundary, double-click to close."
+  if (activeKind.value === "parcel_transport") return "Transport (S): click to draw boundary, double-click to close."
+  if (activeKind.value === "parcel_green") return "Green (G): click to draw boundary, double-click to close."
+  if (activeKind.value === "parcel_water") return "Water (E): click to draw boundary, double-click to close."
   if (activeKind.value === "parcel_mixed") return "Mixed-use: click to draw boundary, double-click to close."
   return "Parcel: click to add polygon vertices, double-click to close."
 })
@@ -291,12 +297,6 @@ onUnmounted(() => {
         <span class="text-slate-300">|</span>
         <NuxtLink to="/buildings" class="text-xs text-purple-600 hover:text-purple-800 font-medium flex items-center gap-1">🏢 Buildings</NuxtLink>
         <NuxtLink to="/commercial" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1">🏷️ Commercial</NuxtLink>
-      </div>
-
-      <!-- 绘制提示 -->
-      <div class="absolute top-20 left-1/2 -translate-x-1/2 z-20 bg-white/95 border border-amber-200 rounded-xl shadow-panel px-4 py-2 text-xs text-slate-700 min-w-[380px]">
-        <p class="font-medium text-amber-700">{{ drawingHint }}</p>
-        <p class="text-slate-500 mt-0.5">{{ drawingSubHint }}</p>
       </div>
 
       <!-- 状态消息 -->

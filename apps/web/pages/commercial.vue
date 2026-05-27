@@ -220,6 +220,12 @@ function toggleFeatureSelection(id: number): void {
 function inferFeatureSubtype(kind: string, geometryType: string): string {
   if (kind === 'commercial' || kind === 'parcel_commercial') return 'mall'
   if (kind === 'residential' || kind === 'parcel_residential') return 'residential'
+  if (kind === 'parcel_public') return 'public'
+  if (kind === 'parcel_industrial') return 'industrial'
+  if (kind === 'parcel_logistics') return 'logistics'
+  if (kind === 'parcel_transport') return 'transport'
+  if (kind === 'parcel_green') return 'green'
+  if (kind === 'parcel_water') return 'water'
   if (kind === 'parcel_mixed') return 'mall'
   if (kind === 'road') return 'road'
   if (kind === 'poi') return 'shop'

@@ -46,7 +46,13 @@ const BRAND_TYPE_LABELS: Record<BrandType, string> = {
 
 const KIND_ICONS: Record<FeatureKind, AppIconName> = {
   parcel_residential: 'residential',
+  parcel_public: 'office',
   parcel_commercial: 'mall',
+  parcel_industrial: 'other',
+  parcel_logistics: 'other',
+  parcel_transport: 'road',
+  parcel_green: 'park',
+  parcel_water: 'river',
   parcel_mixed: 'other',
   residential: 'residential',
   commercial: 'mall',
@@ -55,9 +61,15 @@ const KIND_ICONS: Record<FeatureKind, AppIconName> = {
 }
 
 const KIND_LABELS: Record<FeatureKind, string> = {
-  parcel_residential: 'Residential Parcel',
-  parcel_commercial: 'Commercial Parcel',
-  parcel_mixed: 'Mixed-Use Parcel',
+  parcel_residential: 'Residential (R)',
+  parcel_public: 'Public (A)',
+  parcel_commercial: 'Commercial (B)',
+  parcel_industrial: 'Industrial (M)',
+  parcel_logistics: 'Logistics (W)',
+  parcel_transport: 'Transport (S)',
+  parcel_green: 'Green Space (G)',
+  parcel_water: 'Water (E)',
+  parcel_mixed: 'Mixed-Use',
   residential: 'Residential Area',
   commercial: 'Commercial Area',
   road: 'Road',

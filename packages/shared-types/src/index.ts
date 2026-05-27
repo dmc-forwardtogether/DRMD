@@ -4,8 +4,14 @@ export type DrawMode = "select" | "edit"
 // parcel_* 是用户在地图上绘制的地块（用地级别）
 // 一个地块可包含多栋建筑，一栋建筑可跨多个地块
 export type FeatureKind =
-  | "parcel_residential"   // 住宅地块
-  | "parcel_commercial"    // 商业地块
+  | "parcel_residential"   // 住宅地块 (R)
+  | "parcel_public"        // 公共管理与公共服务用地 (A)
+  | "parcel_commercial"    // 商业服务业设施用地 (B)
+  | "parcel_industrial"    // 工业用地 (M)
+  | "parcel_logistics"     // 物流仓储用地 (W)
+  | "parcel_transport"     // 交通枢纽与道路用地 (S)
+  | "parcel_green"         // 绿地与广场用地 (G)
+  | "parcel_water"         // 水域与特殊用地 (E)
   | "parcel_mixed"         // 混合用地
   | "residential"          // [兼容旧值] 等价于 parcel_residential
   | "commercial"           // [兼容旧值] 等价于 parcel_commercial
@@ -14,8 +20,12 @@ export type FeatureKind =
 
 export function inferFeatureKind(geometryType: string, kindValue?: string): FeatureKind {
   // 新格式优先
-  if (kindValue === "parcel_residential" || kindValue === "parcel_commercial" || kindValue === "parcel_mixed") {
-    return kindValue
+  const validKinds: FeatureKind[] = [
+    "parcel_residential", "parcel_public", "parcel_commercial", "parcel_industrial",
+    "parcel_logistics", "parcel_transport", "parcel_green", "parcel_water", "parcel_mixed"
+  ]
+  if (kindValue && validKinds.includes(kindValue as FeatureKind)) {
+    return kindValue as FeatureKind
   }
   // 兼容旧格式 → 自动映射到新格式
   if (kindValue === "residential") return "parcel_residential"
@@ -30,8 +40,7 @@ export function inferFeatureKind(geometryType: string, kindValue?: string): Feat
 
 /** 判断一个 kind 是否为地块类型（需要多边形绘制） */
 export function isParcelKind(kind: FeatureKind): boolean {
-  return kind === "parcel_residential" || kind === "parcel_commercial" || kind === "parcel_mixed"
-    || kind === "residential" || kind === "commercial"
+  return kind.startsWith("parcel_") || kind === "residential" || kind === "commercial"
 }
 
 export type PoiSource = "manual" | "amap" | "osm" | "brand_official" | "dianping"
@@ -608,6 +617,12 @@ export function parcelKindToSubtype(kind: FeatureKind): string {
   if (kind === "parcel_commercial" || kind === "commercial") return "mall"
   if (kind === "parcel_residential" || kind === "residential") return "residential"
   if (kind === "parcel_mixed") return "mall"
+  if (kind === "parcel_public") return "office"
+  if (kind === "parcel_industrial") return "other"    // 暂无独立 subtype，后续可扩展
+  if (kind === "parcel_logistics") return "other"     // 暂无独立 subtype，后续可扩展
+  if (kind === "parcel_transport") return "road"
+  if (kind === "parcel_green") return "park"
+  if (kind === "parcel_water") return "river"
   return "other"
 }
 

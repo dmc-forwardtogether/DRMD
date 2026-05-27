@@ -134,7 +134,7 @@ watch(() => props.baseStyleId, (id) => {
     switchBaseStyle(id)
   }
 })
-const areaKinds: FeatureKind[] = ["parcel_residential", "parcel_commercial", "parcel_mixed", "residential", "commercial"]
+const areaKinds: FeatureKind[] = ["parcel_residential", "parcel_public", "parcel_commercial", "parcel_industrial", "parcel_logistics", "parcel_transport", "parcel_green", "parcel_water", "parcel_mixed", "residential", "commercial"]
 
 const kindStyleMap = computed(() => {
   return new Map(props.kindStyles.map((style) => [style.kind, style]))
@@ -159,19 +159,32 @@ function setPaintIfLayerExists(layerId: string, property: string, value: unknown
   map.setPaintProperty(layerId, property, value)
 }
 
-function syncActiveDrawColors(): void {
-  const areaColor = getKindColor(currentAreaKind(), "#22c55e")
-  const roadColor = getKindColor("road", "#f97316")
-  const poiColor = getKindColor("poi", "#3b82f6")
+/** Build a MapLibre "match" expression that maps feature.kind → color from kindStyles */
+function buildKindColorMatch(fallback: string): unknown[] {
+  const pairs: unknown[] = []
+  for (const [kind, cfg] of kindStyleMap.value) {
+    if (cfg.color) pairs.push(kind, cfg.color)
+  }
+  return ["match", ["get", "kind"], ...pairs, fallback]
+}
 
-  setPaintIfLayerExists("drmd-polygon-fill.hot", "fill-color", ["coalesce", ["get", "color"], areaColor])
-  setPaintIfLayerExists("drmd-polygon-fill.cold", "fill-color", ["coalesce", ["get", "color"], areaColor])
-  setPaintIfLayerExists("drmd-polygon-stroke.hot", "line-color", ["coalesce", ["get", "color"], areaColor])
-  setPaintIfLayerExists("drmd-polygon-stroke.cold", "line-color", ["coalesce", ["get", "color"], areaColor])
-  setPaintIfLayerExists("drmd-line-stroke.hot", "line-color", ["coalesce", ["get", "color"], roadColor])
-  setPaintIfLayerExists("drmd-line-stroke.cold", "line-color", ["coalesce", ["get", "color"], roadColor])
-  setPaintIfLayerExists("drmd-point-circle.hot", "circle-color", ["coalesce", ["get", "color"], poiColor])
-  setPaintIfLayerExists("drmd-point-circle.cold", "circle-color", ["coalesce", ["get", "color"], poiColor])
+function syncActiveDrawColors(): void {
+  const polygonFallback = getKindColor(currentAreaKind(), "#22c55e")
+  const roadFallback = getKindColor("road", "#555555")
+  const poiFallback = getKindColor("poi", "#3b82f6")
+
+  const polygonColor = buildKindColorMatch(polygonFallback)
+  const roadColor = buildKindColorMatch(roadFallback)
+  const poiColor = buildKindColorMatch(poiFallback)
+
+  setPaintIfLayerExists("drmd-polygon-fill.hot", "fill-color", polygonColor)
+  setPaintIfLayerExists("drmd-polygon-fill.cold", "fill-color", polygonColor)
+  setPaintIfLayerExists("drmd-polygon-stroke.hot", "line-color", polygonColor)
+  setPaintIfLayerExists("drmd-polygon-stroke.cold", "line-color", polygonColor)
+  setPaintIfLayerExists("drmd-line-stroke.hot", "line-color", roadColor)
+  setPaintIfLayerExists("drmd-line-stroke.cold", "line-color", roadColor)
+  setPaintIfLayerExists("drmd-point-circle.hot", "circle-color", poiColor)
+  setPaintIfLayerExists("drmd-point-circle.cold", "circle-color", poiColor)
 }
 
 function syncCursor(): void {
@@ -336,6 +349,15 @@ onMounted(async () => {
     zoom: 11
   })
 
+  // Build kind→color match expression from current kindStyles
+  const initMatchPairs: unknown[] = []
+  for (const s of props.kindStyles) {
+    if (s.color) initMatchPairs.push(s.kind, s.color)
+  }
+  const polygonColorExpr: unknown[] = ["match", ["get", "kind"], ...initMatchPairs, "#22c55e"]
+  const lineColorExpr: unknown[] = ["match", ["get", "kind"], ...initMatchPairs, "#555555"]
+  const pointColorExpr: unknown[] = ["match", ["get", "kind"], ...initMatchPairs, "#3b82f6"]
+
   draw = new MapboxDraw({
     displayControlsDefault: false,
     controls: {},
@@ -346,7 +368,7 @@ onMounted(async () => {
         type: "fill",
         filter: ["all", ["==", "$type", "Polygon"], ["!=", "hidden", true]],
         paint: {
-          "fill-color": ["coalesce", ["get", "color"], "#22c55e"],
+          "fill-color": polygonColorExpr,
           "fill-opacity": 0.32
         }
       },
@@ -356,7 +378,7 @@ onMounted(async () => {
         filter: ["all", ["==", "$type", "Polygon"], ["!=", "hidden", true]],
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": ["coalesce", ["get", "color"], "#22c55e"],
+          "line-color": polygonColorExpr,
           "line-width": 2.5
         }
       },
@@ -366,7 +388,7 @@ onMounted(async () => {
         filter: ["all", ["==", "$type", "LineString"], ["!=", "hidden", true]],
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": ["coalesce", ["get", "color"], "#f97316"],
+          "line-color": lineColorExpr,
           "line-width": 3.5
         }
       },
@@ -376,7 +398,7 @@ onMounted(async () => {
         filter: ["all", ["==", "$type", "Point"], ["==", "meta", "feature"], ["!=", "hidden", true]],
         paint: {
           "circle-radius": 8,
-          "circle-color": ["coalesce", ["get", "color"], "#3b82f6"],
+          "circle-color": pointColorExpr,
           "circle-stroke-width": 2.5,
           "circle-stroke-color": "#ffffff"
         }

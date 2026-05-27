@@ -3,14 +3,20 @@ import {
   Building2,
   Crosshair,
   Download,
+  Droplets,
   Eye,
   EyeOff,
+  Factory,
+  Landmark,
   MapPin,
   MousePointer2,
+  Package,
   Pencil,
   Square,
+  Train,
   Trash,
   Trash2,
+  TreePine,
   Upload,
   Waypoints
 } from "lucide-vue-next"
@@ -22,7 +28,7 @@ const props = withDefaults(defineProps<{
   allowedKinds?: FeatureKind[]
   kindStyles: KindStyleConfig[]
 }>(), {
-  allowedKinds: () => ["residential", "commercial", "road", "poi"]
+  allowedKinds: () => ["parcel_residential", "parcel_public", "parcel_commercial", "parcel_industrial", "parcel_logistics", "parcel_transport", "parcel_green", "parcel_water", "parcel_mixed", "road", "poi"]
 })
 
 const emit = defineEmits<{
@@ -42,18 +48,24 @@ const localStyles = ref<KindStyleConfig[]>([])
 
 const modeTools = [
   { mode: "select" as DrawMode, icon: MousePointer2, label: "Select" },
-  { mode: "edit" as DrawMode, icon: Pencil, label: "Edit" }
+  { mode: "edit" as DrawMode, icon: Pencil, label: "Draw" }
 ]
 
 const kindOptions = [
-  { kind: "parcel_residential" as FeatureKind, label: "Residential", icon: Square },
-  { kind: "parcel_commercial" as FeatureKind, label: "Commercial", icon: Building2 },
+  { kind: "parcel_residential" as FeatureKind, label: "Residential (R)", icon: Square },
+  { kind: "parcel_public" as FeatureKind, label: "Public (A)", icon: Landmark },
+  { kind: "parcel_commercial" as FeatureKind, label: "Commercial (B)", icon: Building2 },
+  { kind: "parcel_industrial" as FeatureKind, label: "Industrial (M)", icon: Factory },
+  { kind: "parcel_logistics" as FeatureKind, label: "Logistics (W)", icon: Package },
+  { kind: "parcel_transport" as FeatureKind, label: "Transport (S)", icon: Train },
+  { kind: "parcel_green" as FeatureKind, label: "Green (G)", icon: TreePine },
+  { kind: "parcel_water" as FeatureKind, label: "Water (E)", icon: Droplets },
   { kind: "parcel_mixed" as FeatureKind, label: "Mixed Use", icon: MapPin },
   { kind: "road" as FeatureKind, label: "Road", icon: Waypoints }
 ]
 
 const kindGroups: Array<{ label: string; kinds: FeatureKind[] }> = [
-  { label: "Parcels", kinds: ["parcel_residential", "parcel_commercial", "parcel_mixed"] },
+  { label: "Urban Land Use", kinds: ["parcel_residential", "parcel_public", "parcel_commercial", "parcel_industrial", "parcel_logistics", "parcel_transport", "parcel_green", "parcel_water", "parcel_mixed"] },
   { label: "Network", kinds: ["road"] }
 ]
 
@@ -148,7 +160,7 @@ function handleKindClick(kind: FeatureKind): void {
       </div>
     </div>
 
-    <div>
+    <div v-if="activeMode === 'edit'">
       <p class="text-xs font-semibold tracking-wider text-slate-400 uppercase">Feature Library</p>
       <div class="mt-2 space-y-2">
         <div
@@ -179,20 +191,32 @@ function handleKindClick(kind: FeatureKind): void {
 
     <div>
       <p class="text-xs font-semibold tracking-wider text-slate-400 uppercase">Layer Styles</p>
-      <div class="mt-2 space-y-2">
+      <div class="mt-2 space-y-1">
         <div
           v-for="style in localStyles"
           :key="style.kind"
-          class="rounded-lg border border-slate-200 p-2 bg-slate-50"
+          class="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 hover:bg-slate-50 transition group"
         >
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-medium text-slate-600 capitalize">{{ style.kind }}</span>
-            <button class="text-slate-500 hover:text-slate-800" @click="toggleVisibility(style.kind)">
-              <Eye v-if="style.visible" class="w-4 h-4" />
-              <EyeOff v-else class="w-4 h-4" />
-            </button>
+          <div class="relative shrink-0">
+            <input
+              :value="style.color"
+              type="color"
+              class="absolute inset-0 w-full h-full cursor-pointer opacity-0"
+              @input="style.color = ($event.target as HTMLInputElement).value"
+            />
+            <div
+              class="w-6 h-6 rounded-md border border-slate-200 shadow-sm pointer-events-none"
+              :style="{ backgroundColor: style.color }"
+            />
           </div>
-          <input v-model="style.color" type="color" class="w-full h-8 mt-2 bg-transparent border-none" />
+          <span class="text-xs text-slate-600 flex-1 truncate">{{ kindOptionMap.get(style.kind)?.label || style.kind }}</span>
+          <button
+            class="text-slate-400 hover:text-slate-600 transition shrink-0"
+            @click="toggleVisibility(style.kind)"
+          >
+            <Eye v-if="style.visible" class="w-3.5 h-3.5" />
+            <EyeOff v-else class="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
     </div>
