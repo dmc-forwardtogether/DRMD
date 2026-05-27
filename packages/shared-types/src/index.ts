@@ -131,8 +131,42 @@ export interface ProjectRecord {
   id: number
   name: string
   srid: number
+  config: ProjectConfig
   createdAt: string
   updatedAt: string
+}
+
+// ===== 项目级配置（存储在 projects.config_json） =====
+// 采用开放式设计：每个功能模块占一个 section，互不干扰
+// 后续新增配置只需添加新的 section，不需要改数据库结构
+
+/** 底图相关配置 */
+export interface MapStyleConfig {
+  /** 底图样式 ID：'dark' | 'light' | 'voyager' | 'positron' */
+  baseStyleId?: string
+}
+
+/** 地图渲染偏好 */
+export interface MapRenderConfig {
+  /** 地块填充透明度 0-1 */
+  parcelFillOpacity?: number
+  /** 道路线宽 */
+  roadLineWidth?: number
+  /** 是否显示标注 */
+  showLabels?: boolean
+}
+
+/** 项目完整配置 — 存储在 projects.config_json */
+export interface ProjectConfig {
+  /** 底图样式 */
+  mapStyle?: MapStyleConfig
+  /** 地图渲染偏好 */
+  render?: MapRenderConfig
+  /** 预留：模拟配置 */
+  // simulation?: SimulationConfig
+  /** 预留：分析配置 */
+  // analysis?: AnalysisConfig
+  [section: string]: unknown
 }
 
 // ===== CTI 数据模型 v2 =====
@@ -405,6 +439,8 @@ export interface ProjectCreateRequest {
     includeBuildings?: boolean
     includeLanduse?: boolean
   }
+  /** 项目级配置（底图风格等） */
+  config?: ProjectConfig
 }
 
 export interface ProjectCreateResponse {
@@ -460,22 +496,22 @@ export interface ProjectLayersResponse {
 
 /** 道路等级常量映射 */
 export const ROAD_CLASS_LABELS: Record<string, string> = {
-  motorway: "高速公路",
-  trunk: "快速路",
-  primary: "主干道",
-  secondary: "次干道",
-  tertiary: "支路",
-  residential: "街坊路",
-  service: "服务路",
-  pedestrian: "步道",
-  rail_hsr: "高铁",
-  rail_conventional: "普速铁路",
-  rail_metro: "地铁",
-  rail_tram: "轻轨",
-  water_river: "江河",
-  water_canal: "运河",
-  water_lake: "湖泊",
-  water_sea: "海洋"
+  motorway: "Motorway",
+  trunk: "Trunk Road",
+  primary: "Primary Road",
+  secondary: "Secondary Road",
+  tertiary: "Tertiary Road",
+  residential: "Residential Road",
+  service: "Service Road",
+  pedestrian: "Pedestrian Path",
+  rail_hsr: "High-Speed Rail",
+  rail_conventional: "Conventional Rail",
+  rail_metro: "Metro",
+  rail_tram: "Tram",
+  water_river: "River",
+  water_canal: "Canal",
+  water_lake: "Lake",
+  water_sea: "Sea"
 }
 
 export const ROAD_CLASS_COLORS: Record<string, string> = {
