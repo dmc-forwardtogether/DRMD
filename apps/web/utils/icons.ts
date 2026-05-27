@@ -21,15 +21,15 @@ const SUBTYPE_ICONS: Record<StructureSubtype, AppIconName> = {
 }
 
 const SUBTYPE_LABELS: Record<StructureSubtype, string> = {
-  mall: '商场',
-  shop: '店铺',
-  office: '写字楼',
-  residential: '住宅',
-  park: '公园',
-  school: '学校',
-  road: '道路',
-  river: '水系',
-  other: '其他',
+  mall: 'Mall',
+  shop: 'Shop',
+  office: 'Office',
+  residential: 'Residential',
+  park: 'Park',
+  school: 'School',
+  road: 'Road',
+  river: 'River',
+  other: 'Other',
 }
 
 const BRAND_TYPE_ICONS: Record<BrandType, AppIconName> = {
@@ -39,9 +39,9 @@ const BRAND_TYPE_ICONS: Record<BrandType, AppIconName> = {
 }
 
 const BRAND_TYPE_LABELS: Record<BrandType, string> = {
-  owner: '业主',
-  customer: '客户',
-  both: '均可',
+  owner: 'Owner',
+  customer: 'Customer',
+  both: 'Both',
 }
 
 const KIND_ICONS: Record<FeatureKind, AppIconName> = {
@@ -55,12 +55,12 @@ const KIND_ICONS: Record<FeatureKind, AppIconName> = {
 }
 
 const KIND_LABELS: Record<FeatureKind, string> = {
-  parcel_residential: '住宅地块',
-  parcel_commercial: '商业地块',
-  parcel_mixed: '混合用地',
-  residential: '住宅区',
-  commercial: '商业体',
-  road: '道路',
+  parcel_residential: 'Residential Parcel',
+  parcel_commercial: 'Commercial Parcel',
+  parcel_mixed: 'Mixed-Use Parcel',
+  residential: 'Residential Area',
+  commercial: 'Commercial Area',
+  road: 'Road',
   poi: 'POI',
 }
 

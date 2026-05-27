@@ -35,10 +35,10 @@ const districts = ref<any[]>([])
 const brandCategoryFilters = computed<FilterOption[]>(() => {
   const counts: Record<string, number> = {}
   brands.value.forEach(b => {
-    const cat = b.category || '未分类'
+    const cat = b.category || 'Uncategorized'
     counts[cat] = (counts[cat] || 0) + 1
   })
-  const list: FilterOption[] = [{ key: "", label: "全部", count: brands.value.length }]
+  const list: FilterOption[] = [{ key: "", label: "All", count: brands.value.length }]
   for (const [cat, count] of Object.entries(counts).sort(([a], [b]) => a.localeCompare(b))) {
     list.push({ key: cat, label: cat, count })
   }
@@ -49,7 +49,7 @@ const brandCategoryFilters = computed<FilterOption[]>(() => {
 const filteredBrands = computed(() => {
   let list = brands.value
   if (selectedBrandCategory.value) {
-    list = list.filter(b => (b.category || '未分类') === selectedBrandCategory.value)
+    list = list.filter(b => (b.category || 'Uncategorized') === selectedBrandCategory.value)
   }
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase()
@@ -84,15 +84,15 @@ async function saveBrand(): Promise<void> {
       const updated = brands.value.find(b => b.id === editingBrandId.value)
       if (updated) selectedBrand.value = updated
     }
-    if (!selectedBrand.value) showStatus(editingBrandId.value ? "品牌已更新" : "品牌已创建", "success")
+    if (!selectedBrand.value) showStatus(editingBrandId.value ? "Brand updated" : "Brand created", "success")
   } catch {
-    if (!selectedBrand.value) showStatus("保存失败", "error")
+    if (!selectedBrand.value) showStatus("Save failed", "error")
   }
 }
 async function deleteBrand(id: number): Promise<void> {
-  if (!confirm("确定删除此品牌？")) return
+  if (!confirm("Delete this brand? This action cannot be undone.")) return
   await $fetch(`${configBase}/brands/${id}`, { method: "DELETE" })
-  showStatus("已删除", "success"); await fetchBrands()
+  showStatus("Brand deleted", "success"); await fetchBrands()
 }
 
 // ===== BRAND DETAIL MODAL =====
@@ -115,9 +115,9 @@ interface DistrictGroup { district: string; stores: any[] }
 const storeRegions = computed(() => {
   const provMap = new Map<string, Map<string, Map<string, any[]>>>()
   for (const store of brandStores.value) {
-    const p = store.province || "未知"
-    const c = store.city || "未知"
-    const d = store.district || "未知"
+    const p = store.province || "Unknown"
+    const c = store.city || "Unknown"
+    const d = store.district || "Unknown"
     if (!provMap.has(p)) provMap.set(p, new Map())
     const cityMap = provMap.get(p)!
     if (!cityMap.has(c)) cityMap.set(c, new Map())
@@ -150,7 +150,7 @@ async function openBrandDetail(b: Brand): Promise<void> {
   try {
     brandStores.value = await $fetch<any[]>(`${configBase}/brands/${b.id}/structures?projectId=1`)
     if (brandStores.value.length > 0) {
-      expandedRegions.value.add(brandStores.value[0].province || "未知")
+      expandedRegions.value.add(brandStores.value[0].province || "Unknown")
     }
   } catch { brandStores.value = [] }
   loadingStores.value = false

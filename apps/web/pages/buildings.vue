@@ -52,7 +52,7 @@ const categoryFilters = computed<FilterOption[]>(() => {
   structures.value.forEach(s => {
     const code = s.structureSubtype; counts[code] = (counts[code] || 0) + 1
   })
-  const list: FilterOption[] = [{ key: "", label: "全部", count: structures.value.length }]
+  const list: FilterOption[] = [{ key: "", label: "All", count: structures.value.length }]
   for (const cat of categories.value) {
     list.push({
       key: String(cat.id),

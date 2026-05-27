@@ -28,6 +28,15 @@ const includeBuildings = ref(true)
 const includeLanduse = ref(true)
 const localError = ref("")
 
+// 底图风格
+const MAP_STYLES = [
+  { id: "dark", label: "Dark", icon: "🌙", desc: "深色底图，适合展示" },
+  { id: "light", label: "Light", icon: "☀️", desc: "浅灰底图，适合编辑" },
+  { id: "voyager", label: "Voyager", icon: "🗺️", desc: "彩色但干净" },
+  { id: "positron", label: "Positron", icon: "📄", desc: "无标签极简" }
+]
+const selectedBaseStyle = ref("dark")
+
 // 已知城市列表
 const CITIES = [
   { key: "beijing", name: "北京市", province: "北京" },
@@ -96,6 +105,9 @@ async function handleCreate(): Promise<void> {
     osmOptions: {
       includeBuildings: includeBuildings.value,
       includeLanduse: includeLanduse.value
+    },
+    config: {
+      mapStyle: { baseStyleId: selectedBaseStyle.value }
     }
   }
 
@@ -146,6 +158,7 @@ watch(() => props.visible, (v) => {
     bbox.value = { south: 0, west: 0, north: 0, east: 0 }
     localError.value = ""
     activeTab.value = "district"
+    selectedBaseStyle.value = "dark"
   }
 })
 </script>
@@ -331,6 +344,29 @@ watch(() => props.visible, (v) => {
               />
               Import land use (auto-generate parcels)
             </label>
+          </div>
+
+          <!-- Base Map Style -->
+          <div class="border-t border-slate-100 pt-3">
+            <p class="text-xs font-medium text-slate-600 mb-2">Base Map Style</p>
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                v-for="s in MAP_STYLES"
+                :key="s.id"
+                type="button"
+                class="flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all text-left"
+                :class="selectedBaseStyle === s.id
+                  ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
+                  : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'"
+                @click="selectedBaseStyle = s.id"
+              >
+                <span class="text-base">{{ s.icon }}</span>
+                <div>
+                  <div class="font-medium">{{ s.label }}</div>
+                  <div class="text-xs opacity-70">{{ s.desc }}</div>
+                </div>
+              </button>
+            </div>
           </div>
 
           <!-- Error -->

@@ -16,11 +16,15 @@ const props = defineProps<{
   activeMode: DrawMode
   activeKind: FeatureKind
   kindStyles: KindStyleConfig[]
+  /** 底图样式 ID（从 project config 传入） */
+  baseStyleId?: string
 }>()
 
 const emit = defineEmits<{
   (e: "update", features: GeoJSON.FeatureCollection): void
   (e: "select", feature: SelectedFeatureInfo | null): void
+  /** 底图样式变更，由父组件保存到 project config */
+  (e: "base-style-change", styleId: string): void
 }>()
 
 const mapContainer = ref<HTMLDivElement>()
@@ -28,6 +32,108 @@ let map: maplibregl.Map | null = null
 let draw: InstanceType<typeof MapboxDraw> | null = null
 let suppressSelection = false
 let applyModeTimer: ReturnType<typeof setTimeout> | null = null
+
+// ===== 底图样式切换 =====
+interface BaseStyle {
+  id: string
+  label: string
+  icon: string
+  tiles: string[]
+  attribution: string
+}
+
+const baseStyles: BaseStyle[] = [
+  {
+    id: "dark",
+    label: "Dark",
+    icon: "🌙",
+    tiles: [
+      "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+      "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+      "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"
+    ],
+    attribution: "© CARTO © OpenStreetMap contributors"
+  },
+  {
+    id: "light",
+    label: "Light",
+    icon: "☀️",
+    tiles: [
+      "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+      "https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+      "https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"
+    ],
+    attribution: "© CARTO © OpenStreetMap contributors"
+  },
+  {
+    id: "voyager",
+    label: "Voyager",
+    icon: "🗺️",
+    tiles: [
+      "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+      "https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+      "https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
+    ],
+    attribution: "© CARTO © OpenStreetMap contributors"
+  },
+  {
+    id: "positron",
+    label: "Positron",
+    icon: "📄",
+    tiles: [
+      "https://a.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png",
+      "https://b.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png",
+      "https://c.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png"
+    ],
+    attribution: "© CARTO © OpenStreetMap contributors"
+  }
+]
+
+const currentStyleId = ref("dark")
+
+function switchBaseStyle(styleId: string): void {
+  if (!map || styleId === currentStyleId.value) return
+  const style = baseStyles.find(s => s.id === styleId)
+  if (!style) return
+
+  // 保存当前绘制数据（防止 removeLayer 触发 draw 重置丢失要素）
+  const snapshot = draw ? draw.getAll() : null
+
+  // 移除旧底图图层和源
+  if (map.getLayer("carto-raster")) map.removeLayer("carto-raster")
+  if (map.getSource("carto")) map.removeSource("carto")
+
+  // 添加新底图源和图层（插入到所有绘制图层之下）
+  map.addSource("carto", {
+    type: "raster",
+    tiles: style.tiles,
+    tileSize: 256,
+    attribution: style.attribution
+  })
+
+  // 找到第一个绘制图层，在其下方插入底图
+  const firstDrawLayer = map.getStyle().layers?.find(l => l.id.startsWith("drmd-"))
+  map.addLayer({
+    id: "carto-raster",
+    type: "raster",
+    source: "carto"
+  }, firstDrawLayer?.id)
+
+  // 恢复绘制数据
+  if (snapshot && draw && snapshot.features.length > 0) {
+    draw.set(snapshot)
+  }
+
+  currentStyleId.value = styleId
+  emit("base-style-change", styleId)
+}
+
+// 外部传入 baseStyleId 变化时同步
+watch(() => props.baseStyleId, (id) => {
+  if (id && id !== currentStyleId.value) {
+    switchBaseStyle(id)
+  }
+})
 const areaKinds: FeatureKind[] = ["parcel_residential", "parcel_commercial", "parcel_mixed", "residential", "commercial"]
 
 const kindStyleMap = computed(() => {
@@ -202,23 +308,27 @@ function extractCoordinates(geometry: GeoJSON.Geometry): number[][] {
 onMounted(async () => {
   await nextTick()
 
+  const initStyleId = props.baseStyleId || currentStyleId.value
+  const initStyle = baseStyles.find(s => s.id === initStyleId) || baseStyles[0]
+  currentStyleId.value = initStyle.id
+
   map = new maplibregl.Map({
     container: mapContainer.value as HTMLDivElement,
     style: {
       version: 8,
       sources: {
-        osm: {
+        carto: {
           type: "raster",
-          tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+          tiles: initStyle.tiles,
           tileSize: 256,
-          attribution: "OpenStreetMap"
+          attribution: initStyle.attribution
         }
       },
       layers: [
         {
-          id: "osm-raster",
+          id: "carto-raster",
           type: "raster",
-          source: "osm"
+          source: "carto"
         }
       ]
     },
@@ -237,7 +347,7 @@ onMounted(async () => {
         filter: ["all", ["==", "$type", "Polygon"], ["!=", "hidden", true]],
         paint: {
           "fill-color": ["coalesce", ["get", "color"], "#22c55e"],
-          "fill-opacity": 0.25
+          "fill-opacity": 0.32
         }
       },
       {
@@ -247,7 +357,7 @@ onMounted(async () => {
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
           "line-color": ["coalesce", ["get", "color"], "#22c55e"],
-          "line-width": 2.2
+          "line-width": 2.5
         }
       },
       {
@@ -257,7 +367,7 @@ onMounted(async () => {
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
           "line-color": ["coalesce", ["get", "color"], "#f97316"],
-          "line-width": 3
+          "line-width": 3.5
         }
       },
       {
@@ -265,9 +375,9 @@ onMounted(async () => {
         type: "circle",
         filter: ["all", ["==", "$type", "Point"], ["==", "meta", "feature"], ["!=", "hidden", true]],
         paint: {
-          "circle-radius": 7,
+          "circle-radius": 8,
           "circle-color": ["coalesce", ["get", "color"], "#3b82f6"],
-          "circle-stroke-width": 2,
+          "circle-stroke-width": 2.5,
           "circle-stroke-color": "#ffffff"
         }
       },
@@ -276,7 +386,7 @@ onMounted(async () => {
         type: "circle",
         filter: ["all", ["==", "$type", "Point"], ["==", "meta", "midpoint"]],
         paint: {
-          "circle-radius": 4,
+          "circle-radius": 5,
           "circle-color": "#1d4ed8"
         }
       },
@@ -285,9 +395,9 @@ onMounted(async () => {
         type: "circle",
         filter: ["all", ["==", "meta", "vertex"], ["==", "$type", "Point"]],
         paint: {
-          "circle-radius": 5,
+          "circle-radius": 5.5,
           "circle-color": "#ffffff",
-          "circle-stroke-width": 2,
+          "circle-stroke-width": 2.5,
           "circle-stroke-color": "#1d4ed8"
         }
       }
@@ -487,4 +597,23 @@ onUnmounted(() => {
 
 <template>
   <div ref="mapContainer" class="w-full h-full" />
+
+  <!-- 底图切换器 -->
+  <div class="absolute bottom-16 right-2 z-20 flex flex-col gap-1 bg-slate-900/80 backdrop-blur-sm rounded-lg p-1 shadow-lg border border-slate-700/50">
+    <button
+      v-for="style in baseStyles"
+      :key="style.id"
+      :class="[
+        'flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-all',
+        currentStyleId === style.id
+          ? 'bg-white/20 text-white shadow-sm'
+          : 'text-slate-400 hover:text-white hover:bg-white/10'
+      ]"
+      :title="style.label"
+      @click="switchBaseStyle(style.id)"
+    >
+      <span class="text-sm">{{ style.icon }}</span>
+      <span>{{ style.label }}</span>
+    </button>
+  </div>
 </template>

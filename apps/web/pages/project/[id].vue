@@ -24,11 +24,17 @@ interface MapRef {
 }
 const mapRef = ref<MapRef | null>(null)
 
-// ===== 项目信息（名称 + 视口） =====
+// ===== 项目信息（名称 + 视口 + 配置） =====
 const projectName = ref("")
+const projectConfig = ref<Record<string, unknown>>({})
 const initialView = ref<{ lng: number; lat: number; zoom: number } | null>(null)
 const viewApplied = ref(false)
 let viewSaveTimer: ReturnType<typeof setTimeout> | null = null
+
+const projectBaseStyleId = computed(() => {
+  const mapStyle = projectConfig.value?.mapStyle as Record<string, unknown> | undefined
+  return (mapStyle?.baseStyleId as string) || undefined
+})
 
 // ===== 视口：URL hash 优先（Google Maps / Mapbox 标准做法） =====
 
@@ -61,10 +67,11 @@ function onMapMoveEnd(): void {
 
 async function fetchProjectInfo(): Promise<void> {
   try {
-    const res = await $fetch<{ project: { name: string; centerLng?: number; centerLat?: number; zoom?: number } }>(
+    const res = await $fetch<{ project: { name: string; centerLng?: number; centerLat?: number; zoom?: number; config?: Record<string, unknown> } }>(
       `${apiBase}/api/projects/${projectId.value}`
     )
     projectName.value = res.project.name
+    projectConfig.value = res.project.config || {}
     if (!initialView.value && res.project.centerLng && res.project.centerLat) {
       initialView.value = {
         lng: res.project.centerLng,
@@ -211,6 +218,20 @@ const drawingHint = computed(() => {
 
 const drawingSubHint = computed(() => "Delete last point: Backspace/Delete or toolbar Delete button while drawing.")
 
+// ===== 底图样式变更 → 保存到 project config =====
+function handleBaseStyleChange(styleId: string): void {
+  // 本地立即更新
+  projectConfig.value = {
+    ...projectConfig.value,
+    mapStyle: { baseStyleId: styleId }
+  }
+  // 异步保存到后端
+  $fetch(`${apiBase}/api/projects/${projectId.value}`, {
+    method: "PATCH",
+    body: { config: { mapStyle: { baseStyleId: styleId } } }
+  }).catch(() => {})
+}
+
 function showStatus(message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info'): void {
   statusMessage.value = message
   if (statusTimer) clearTimeout(statusTimer)
@@ -290,9 +311,11 @@ onUnmounted(() => {
           :active-mode="activeMode"
           :active-kind="activeKind"
           :kind-styles="store.kindStyles"
+          :base-style-id="projectBaseStyleId"
           class="w-full h-full"
           @update="handleMapUpdate"
           @select="handleMapSelection"
+          @base-style-change="handleBaseStyleChange"
         />
         <template #fallback>
           <div class="h-full w-full grid place-items-center text-slate-400">Loading map...</div>

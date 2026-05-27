@@ -36,7 +36,9 @@ const projectCreateSchema = z.object({
   osmOptions: z.object({
     includeBuildings: z.boolean().optional().default(true),
     includeLanduse: z.boolean().optional().default(true)
-  }).optional().default({})
+  }).optional().default({}),
+  // 项目级配置（底图风格等）
+  config: z.record(z.unknown()).optional()
 })
 
 const geoJsonGeometrySchema = z.object({
@@ -130,14 +132,15 @@ router.post("/projects", async (req, res, next) => {
 
     const result = await pool.query(
       `
-        INSERT INTO projects(name, srid, source_type, district_code, bounds)
-        VALUES ($1, $2, $3, $4, ${boundsParam})
+        INSERT INTO projects(name, srid, source_type, district_code, bounds, config_json)
+        VALUES ($1, $2, $3, $4, ${boundsParam}, $5::jsonb)
         RETURNING id, name, srid, source_type AS "sourceType",
                   district_code AS "districtCode",
                   ST_AsGeoJSON(bounds)::json AS bounds,
+                  COALESCE(config_json, '{}'::jsonb) AS "config",
                   created_at AS "createdAt", updated_at AS "updatedAt"
       `,
-      [payload.name, payload.srid || 4326, sourceType, payload.districtCode || null]
+      [payload.name, payload.srid || 4326, sourceType, payload.districtCode || null, JSON.stringify(payload.config || {})]
     )
 
     const project = result.rows[0]
@@ -239,6 +242,7 @@ router.get("/projects/:projectId", async (req, res, next) => {
       `
         SELECT id, name, srid,
                center_lng AS "centerLng", center_lat AS "centerLat", zoom,
+               COALESCE(config_json, '{}'::jsonb) AS "config",
                created_at, updated_at
         FROM projects
         WHERE id = $1
@@ -262,7 +266,9 @@ const projectPatchSchema = z.object({
   bounds: bboxSchema.optional(),
   centerLng: z.number().min(-180).max(180).optional(),
   centerLat: z.number().min(-90).max(90).optional(),
-  zoom: z.number().min(0).max(22).optional()
+  zoom: z.number().min(0).max(22).optional(),
+  // 项目级配置：支持任意 section 的 partial update
+  config: z.record(z.unknown()).optional()
 })
 
 router.patch("/projects/:projectId", async (req, res, next) => {
@@ -298,6 +304,12 @@ router.patch("/projects/:projectId", async (req, res, next) => {
       values.push(payload.zoom)
     }
 
+    // config_json: merge into existing config (section-level patch)
+    if (payload.config !== undefined) {
+      sets.push(`config_json = COALESCE(config_json, '{}'::jsonb) || $${paramIndex++}::jsonb`)
+      values.push(JSON.stringify(payload.config))
+    }
+
     if (sets.length === 0) {
       res.status(400).json({ error: "No fields to update" })
       return
@@ -309,6 +321,7 @@ router.patch("/projects/:projectId", async (req, res, next) => {
        RETURNING id, name, srid, source_type AS "sourceType", district_code AS "districtCode",
                  ST_AsGeoJSON(bounds)::json AS bounds,
                  center_lng AS "centerLng", center_lat AS "centerLat", zoom,
+                 COALESCE(config_json, '{}'::jsonb) AS "config",
                  created_at AS "createdAt", updated_at AS "updatedAt"`,
       values
     )
