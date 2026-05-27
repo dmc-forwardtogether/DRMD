@@ -49,8 +49,7 @@ async function handleProjectCreated(response: ProjectCreateResponse): Promise<vo
   try {
     showCreateDialog.value = false
     await fetchProjects()
-    // 自动进入新项目
-    openProject(response.project.id)
+    await navigateTo(`/project/${response.project.id}`)
   } catch (error) {
     createError.value = error instanceof Error ? error.message : "Failed to create project"
   } finally {
@@ -59,14 +58,7 @@ async function handleProjectCreated(response: ProjectCreateResponse): Promise<vo
 }
 
 function openProject(projectId: number): void {
-  currentProjectId.value = projectId
-  viewMode.value = "editor"
-}
-
-function backToDashboard(): void {
-  viewMode.value = "dashboard"
-  currentProjectId.value = null
-  selectedFeature.value = null
+  navigateTo(`/project/${projectId}`)
 }
 
 // ===== Editor 状态 =====
