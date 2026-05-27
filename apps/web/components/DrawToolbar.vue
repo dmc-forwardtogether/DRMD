@@ -34,7 +34,7 @@ const props = withDefaults(defineProps<{
   featureCount?: number
   countByKind?: Partial<Record<FeatureKind, number>>
 }>(), {
-  allowedKinds: () => ["parcel_residential", "parcel_public", "parcel_commercial", "parcel_industrial", "parcel_transport", "parcel_green", "parcel_water", "road"],
+  allowedKinds: () => ["residential", "public", "commercial", "industrial", "transport", "green", "water", "road"],
   projectName: "",
   featureCount: 0,
   countByKind: () => ({})
@@ -68,18 +68,18 @@ const modeTools = [
 ]
 
 const kindOptions = [
-  { kind: "parcel_residential" as FeatureKind, label: "Residential (R)", icon: Square },
-  { kind: "parcel_public" as FeatureKind, label: "Public (A)", icon: Landmark },
-  { kind: "parcel_commercial" as FeatureKind, label: "Commercial (B)", icon: Building2 },
-  { kind: "parcel_industrial" as FeatureKind, label: "Industrial (M)", icon: Factory },
-  { kind: "parcel_transport" as FeatureKind, label: "Transport (S)", icon: Train },
-  { kind: "parcel_green" as FeatureKind, label: "Green (G)", icon: TreePine },
-  { kind: "parcel_water" as FeatureKind, label: "Water (E)", icon: Droplets },
+  { kind: "residential" as FeatureKind, label: "Residential (R)", icon: Square },
+  { kind: "public" as FeatureKind, label: "Public (A)", icon: Landmark },
+  { kind: "commercial" as FeatureKind, label: "Commercial (B)", icon: Building2 },
+  { kind: "industrial" as FeatureKind, label: "Industrial (M)", icon: Factory },
+  { kind: "transport" as FeatureKind, label: "Transport (S)", icon: Train },
+  { kind: "green" as FeatureKind, label: "Green (G)", icon: TreePine },
+  { kind: "water" as FeatureKind, label: "Water (E)", icon: Droplets },
   { kind: "road" as FeatureKind, label: "Road", icon: Waypoints }
 ]
 
 const kindGroups: Array<{ label: string; kinds: FeatureKind[] }> = [
-  { label: "Urban Land Use", kinds: ["parcel_residential", "parcel_public", "parcel_commercial", "parcel_industrial", "parcel_transport", "parcel_green", "parcel_water"] },
+  { label: "Urban Land Use", kinds: ["residential", "public", "commercial", "industrial", "transport", "green", "water"] },
   { label: "Network", kinds: ["road"] }
 ]
 
@@ -193,13 +193,13 @@ function handleKindClick(kind: FeatureKind): void {
         <template v-for="(count, kind) in countByKind" :key="kind">
           <span v-if="count && count > 0" class="text-[10px] rounded-full px-1.5 py-0.5 font-medium"
             :class="{
-              'text-amber-700 bg-amber-50': kind === 'parcel_residential',
-              'text-orange-700 bg-orange-50': kind === 'parcel_public',
-              'text-red-700 bg-red-50': kind === 'parcel_commercial',
-              'text-yellow-700 bg-yellow-50': kind === 'parcel_industrial',
-              'text-gray-700 bg-gray-100': kind === 'parcel_transport',
-              'text-green-700 bg-green-50': kind === 'parcel_green',
-              'text-blue-700 bg-blue-50': kind === 'parcel_water',
+              'text-amber-700 bg-amber-50': kind === 'residential',
+              'text-orange-700 bg-orange-50': kind === 'public',
+              'text-red-700 bg-red-50': kind === 'commercial',
+              'text-yellow-700 bg-yellow-50': kind === 'industrial',
+              'text-gray-700 bg-gray-100': kind === 'transport',
+              'text-green-700 bg-green-50': kind === 'green',
+              'text-blue-700 bg-blue-50': kind === 'water',
               'text-slate-600 bg-slate-100': kind === 'road'
             }"
           >{{ kindOptionMap.get(kind as FeatureKind)?.label?.split(' ')[0] || kind }}: {{ count }}</span>

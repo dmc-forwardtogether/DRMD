@@ -90,7 +90,7 @@ const activeKind = ref<FeatureKind>("parcel_commercial")
 const selectedFeature = ref<SelectedFeatureInfo | null>(null)
 const statusMessage = ref("")
 let statusTimer: ReturnType<typeof setTimeout> | null = null
-const allowedKinds: FeatureKind[] = ["parcel_residential", "parcel_public", "parcel_commercial", "parcel_industrial", "parcel_transport", "parcel_green", "parcel_water", "road"]
+const allowedKinds: FeatureKind[] = ["residential", "public", "commercial", "industrial", "transport", "green", "water", "road"]
 
 // 首次加载：读 hash → 拉项目信息 → 等 map + projectName 就绪后加载
 const hasHash = ref(false)
@@ -214,13 +214,13 @@ async function handleFetchPoi(_featureId: string, lat: number, lng: number): Pro
 const drawingHint = computed(() => {
   if (activeMode.value === "select") return ""
   if (activeKind.value === "road") return "Road: click to add waypoints, double-click to finish."
-  if (activeKind.value === "parcel_residential") return "Residential (R): click to draw boundary, double-click to close."
-  if (activeKind.value === "parcel_public") return "Public (A): click to draw boundary, double-click to close."
-  if (activeKind.value === "parcel_commercial") return "Commercial (B): click to draw boundary, double-click to close."
-  if (activeKind.value === "parcel_industrial") return "Industrial (M): click to draw boundary, double-click to close."
-  if (activeKind.value === "parcel_transport") return "Transport (S): click to draw boundary, double-click to close."
-  if (activeKind.value === "parcel_green") return "Green (G): click to draw boundary, double-click to close."
-  if (activeKind.value === "parcel_water") return "Water (E): click to draw boundary, double-click to close."
+  if (activeKind.value === "residential") return "Residential (R): click to draw boundary, double-click to close."
+  if (activeKind.value === "public") return "Public (A): click to draw boundary, double-click to close."
+  if (activeKind.value === "commercial") return "Commercial (B): click to draw boundary, double-click to close."
+  if (activeKind.value === "industrial") return "Industrial (M): click to draw boundary, double-click to close."
+  if (activeKind.value === "transport") return "Transport (S): click to draw boundary, double-click to close."
+  if (activeKind.value === "green") return "Green (G): click to draw boundary, double-click to close."
+  if (activeKind.value === "water") return "Water (E): click to draw boundary, double-click to close."
   return "Parcel: click to add polygon vertices, double-click to close."
 })
 
@@ -274,9 +274,8 @@ onUnmounted(() => {
       :project-name="projectName"
       :feature-count="store.featureCount"
       :count-by-kind="{
-        parcel_residential: store.residentialCount,
-        parcel_commercial: store.commercialCount,
-        parcel_industrial: store.roadCount,
+        residential: store.residentialCount,
+        commercial: store.commercialCount,
         road: store.roadCount,
       }"
       @mode-change="handleModeChange"

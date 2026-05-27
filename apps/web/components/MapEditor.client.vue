@@ -90,7 +90,16 @@ const baseStyles: BaseStyle[] = [
 ]
 
 const currentStyleId = ref("dark")
-const baseStyleOpen = ref(false)
+const baseStyleHover = ref(false)
+let baseStyleTimer: ReturnType<typeof setTimeout> | null = null
+
+function showBaseStyles(): void {
+  if (baseStyleTimer) { clearTimeout(baseStyleTimer); baseStyleTimer = null }
+  baseStyleHover.value = true
+}
+function hideBaseStylesDelayed(): void {
+  baseStyleTimer = setTimeout(() => { baseStyleHover.value = false }, 1500)
+}
 
 function switchBaseStyle(styleId: string): void {
   if (!map || styleId === currentStyleId.value) return
@@ -135,7 +144,7 @@ watch(() => props.baseStyleId, (id) => {
     switchBaseStyle(id)
   }
 })
-const areaKinds: FeatureKind[] = ["parcel_residential", "parcel_public", "parcel_commercial", "parcel_industrial", "parcel_transport", "parcel_green", "parcel_water", "residential", "commercial"]
+const areaKinds: FeatureKind[] = ["residential", "public", "commercial", "industrial", "transport", "green", "water", "road"]
 
 const kindStyleMap = computed(() => {
   return new Map(props.kindStyles.map((style) => [style.kind, style]))
@@ -150,40 +159,26 @@ function desiredDrawModeByKind(kind: FeatureKind): "draw_point" | "draw_line_str
 function syncActiveDrawColors(): void {
   if (!map || !draw) return
 
-  // 1) Build match expression mapping ALL known kind values → colors
-  //    Include both old ("commercial") and new ("parcel_commercial") formats
+  // Build match expression from kindStyles (all kinds are now in unified format)
   const matchPairs: unknown[] = []
-  const oldToNew: Record<string, string> = {
-    residential: "parcel_residential",
-    commercial: "parcel_commercial"
-  }
   for (const [kind, cfg] of kindStyleMap.value) {
     matchPairs.push(kind, cfg.color)
-    // Also map old format → same color
-    for (const [old, mapped] of Object.entries(oldToNew)) {
-      if (mapped === kind) matchPairs.push(old, cfg.color)
-    }
   }
   const fallback = "#cccccc"
-  const polygonMatch: unknown[] = ["match", ["get", "kind"], ...matchPairs, fallback]
-  const lineMatch: unknown[]   = ["match", ["get", "kind"], ...matchPairs, "#555555"]
-  const pointMatch: unknown[]  = ["match", ["get", "kind"], ...matchPairs, "#3b82f6"]
+  const polyExpr: unknown[] = ["match", ["get", "kind"], ...matchPairs, fallback]
+  const lineExpr: unknown[] = ["match", ["get", "kind"], ...matchPairs, "#555555"]
+  const ptExpr: unknown[]   = ["match", ["get", "kind"], ...matchPairs, "#3b82f6"]
 
-  // 2) Set paint properties directly on MapLibre layers (MapboxDraw layers)
+  // Apply to polygon layers (fill + stroke)
   for (const id of ["drmd-polygon-fill", "drmd-polygon-stroke"]) {
     if (map.getLayer(id)) {
-      const prop = id.endsWith("fill") ? "fill-color" : "line-color"
-      map.setPaintProperty(id, prop, polygonMatch)
+      map.setPaintProperty(id, id.endsWith("fill") ? "fill-color" : "line-color", polyExpr)
     }
   }
-  if (map.getLayer("drmd-line-stroke")) {
-    map.setPaintProperty("drmd-line-stroke", "line-color", lineMatch)
-  }
-  if (map.getLayer("drmd-point-circle")) {
-    map.setPaintProperty("drmd-point-circle", "circle-color", pointMatch)
-  }
+  if (map.getLayer("drmd-line-stroke"))  map.setPaintProperty("drmd-line-stroke", "line-color", lineExpr)
+  if (map.getLayer("drmd-point-circle")) map.setPaintProperty("drmd-point-circle", "circle-color", ptExpr)
 
-  // 3) Also normalize kind + color on feature properties (keeps data consistent)
+  // Also normalize kind + update visibility on feature properties
   const data = draw.getAll()
   const updated = data.features.map((f) => {
     const p = { ...(f.properties || {}) } as Record<string, unknown>
@@ -198,17 +193,13 @@ function syncActiveDrawColors(): void {
   })
 
   suppressSelection = true
-  try {
-    draw.set({ type: "FeatureCollection", features: updated })
-  } finally {
-    suppressSelection = false
-  }
+  try { draw.set({ type: "FeatureCollection", features: updated }) }
+  finally { suppressSelection = false }
 
-  // 4) Re-apply paint after draw.set() in case it reset the properties
+  // Re-apply paint after draw.set() in case it reset layers
   for (const id of ["drmd-polygon-fill", "drmd-polygon-stroke"]) {
     if (map.getLayer(id)) {
-      const prop = id.endsWith("fill") ? "fill-color" : "line-color"
-      map.setPaintProperty(id, prop, polygonMatch)
+      map.setPaintProperty(id, id.endsWith("fill") ? "fill-color" : "line-color", polyExpr)
     }
   }
 }
@@ -626,10 +617,8 @@ defineExpose({
 })
 
 onUnmounted(() => {
-  if (applyModeTimer) {
-    clearTimeout(applyModeTimer)
-    applyModeTimer = null
-  }
+  if (applyModeTimer) { clearTimeout(applyModeTimer); applyModeTimer = null }
+  if (baseStyleTimer) { clearTimeout(baseStyleTimer); baseStyleTimer = null }
   map?.remove()
   map = null
   draw = null
@@ -639,36 +628,45 @@ onUnmounted(() => {
 <template>
   <div ref="mapContainer" class="w-full h-full" />
 
-  <!-- 底图切换器 (collapsible) -->
-  <div class="absolute bottom-4 right-2 z-20">
-    <!-- Collapsed: single button -->
-    <button
-      v-if="!baseStyleOpen"
-      class="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-medium bg-slate-900/80 backdrop-blur-sm text-white shadow-lg border border-slate-700/50 hover:bg-slate-800 transition-all"
-      @click="baseStyleOpen = true"
+  <!-- 底图切换器: bottom-center, horizontal, auto-hide -->
+  <div
+    class="absolute bottom-4 left-1/2 -translate-x-1/2 z-20"
+    @mouseenter="showBaseStyles"
+    @mouseleave="hideBaseStylesDelayed"
+  >
+    <transition
+      enter-active-class="transition-all duration-300 ease-out"
+      leave-active-class="transition-all duration-500 ease-in"
+      enter-from-class="opacity-0 translate-y-2 scale-95"
+      enter-to-class="opacity-100 translate-y-0 scale-100"
+      leave-from-class="opacity-100 translate-y-0 scale-100"
+      leave-to-class="opacity-0 translate-y-2 scale-95"
     >
-      <span class="text-sm">{{ baseStyles.find(s => s.id === currentStyleId)?.icon || '🗺️' }}</span>
-    </button>
-    <!-- Expanded: full list -->
-    <div
-      v-else
-      class="flex flex-col gap-0.5 bg-slate-900/80 backdrop-blur-sm rounded-lg p-1 shadow-lg border border-slate-700/50"
-    >
-      <button
-        v-for="style in baseStyles"
-        :key="style.id"
-        :class="[
-          'flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-all',
-          currentStyleId === style.id
-            ? 'bg-white/20 text-white shadow-sm'
-            : 'text-slate-400 hover:text-white hover:bg-white/10'
-        ]"
-        :title="style.label"
-        @click="switchBaseStyle(style.id); baseStyleOpen = false"
+      <div
+        v-show="baseStyleHover"
+        class="flex items-center gap-1 bg-slate-900/80 backdrop-blur-md rounded-full px-2 py-1.5 shadow-xl border border-white/10"
       >
-        <span class="text-sm">{{ style.icon }}</span>
-        <span>{{ style.label }}</span>
-      </button>
-    </div>
+        <button
+          v-for="style in baseStyles"
+          :key="style.id"
+          :class="[
+            'flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all duration-200',
+            currentStyleId === style.id
+              ? 'bg-white/20 text-white shadow-sm'
+              : 'text-slate-400 hover:text-white hover:bg-white/10'
+          ]"
+          @click="switchBaseStyle(style.id)"
+        >
+          <span class="text-xs">{{ style.icon }}</span>
+          <span>{{ style.label }}</span>
+        </button>
+      </div>
+    </transition>
+    <!-- Collapsed trigger: subtle dot -->
+    <div
+      v-if="!baseStyleHover"
+      class="absolute inset-0 -m-2"
+      @mouseenter="showBaseStyles"
+    />
   </div>
 </template>

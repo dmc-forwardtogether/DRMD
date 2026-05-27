@@ -467,15 +467,13 @@ function formatLength(v: number): string {
 }
 function kindLabel(k: string): string {
   const m: Record<string, string> = {
-    "parcel_residential": "住宅用地 (R)",
-    "parcel_public": "公共管理用地 (A)",
-    "parcel_commercial": "商业用地 (B)",
-    "parcel_industrial": "工业用地 (M)",
-    "parcel_transport": "交通枢纽用地 (S)",
-    "parcel_green": "绿地广场用地 (G)",
-    "parcel_water": "水域特殊用地 (E)",
-    "residential": "住宅区(旧)",
-    "commercial": "商业体(旧)",
+    "residential": "住宅用地 (R)",
+    "public": "公共管理用地 (A)",
+    "commercial": "商业用地 (B)",
+    "industrial": "工业用地 (M)",
+    "transport": "交通枢纽用地 (S)",
+    "green": "绿地广场用地 (G)",
+    "water": "水域特殊用地 (E)",
     "road": "道路",
     "poi": "POI"
   }
@@ -544,13 +542,13 @@ function entityLabel(e: Entity): string {
 
         <label class="text-xs text-slate-500">类型</label>
         <select v-model="kind" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
-          <option value="parcel_residential">住宅用地 Residential (R)</option>
-          <option value="parcel_public">公共管理用地 Public (A)</option>
-          <option value="parcel_commercial">商业用地 Commercial (B)</option>
-          <option value="parcel_industrial">工业用地 Industrial (M)</option>
-          <option value="parcel_transport">交通枢纽用地 Transport (S)</option>
-          <option value="parcel_green">绿地广场用地 Green (G)</option>
-          <option value="parcel_water">水域特殊用地 Water (E)</option>
+          <option value="residential">住宅用地 Residential (R)</option>
+          <option value="public">公共管理用地 Public (A)</option>
+          <option value="commercial">商业用地 Commercial (B)</option>
+          <option value="industrial">工业用地 Industrial (M)</option>
+          <option value="transport">交通枢纽用地 Transport (S)</option>
+          <option value="green">绿地广场用地 Green (G)</option>
+          <option value="water">水域特殊用地 Water (E)</option>
           <option value="road">道路 Road</option>
           <option value="poi">POI</option>
         </select>

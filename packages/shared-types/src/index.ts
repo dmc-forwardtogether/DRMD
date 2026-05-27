@@ -1,44 +1,43 @@
 export type DrawMode = "select" | "edit"
 
-// ===== 地块类型（四层模型 Layer 1） =====
-// parcel_* 是用户在地图上绘制的地块（用地级别）
-// 一个地块可包含多栋建筑，一栋建筑可跨多个地块
+// ===== 地块类型 =====
+// 用户在地图上绘制的地块（用地级别），一个地块可包含多栋建筑
 export type FeatureKind =
-  | "parcel_residential"   // 住宅地块 (R)
-  | "parcel_public"        // 公共管理与公共服务用地 (A)
-  | "parcel_commercial"    // 商业服务业设施用地 (B)
-  | "parcel_industrial"    // 工业用地 (M)
-  | "parcel_transport"     // 交通枢纽与道路用地 (S)
-  | "parcel_green"         // 绿地与广场用地 (G)
-  | "parcel_water"         // 水域与特殊用地 (E)
-  | "residential"          // [兼容旧值] 等价于 parcel_residential
-  | "commercial"           // [兼容旧值] 等价于 parcel_commercial
-  | "road"                 // 道路
-  | "poi"                  // 兴趣点
+  | "residential"   // 住宅地块 (R)
+  | "public"        // 公共管理与公共服务用地 (A)
+  | "commercial"    // 商业服务业设施用地 (B)
+  | "industrial"    // 工业用地 (M)
+  | "transport"     // 交通枢纽与道路用地 (S)
+  | "green"         // 绿地与广场用地 (G)
+  | "water"         // 水域与特殊用地 (E)
+  | "road"          // 道路
+  | "poi"           // 兴趣点
+
+export const PARCEL_KINDS: FeatureKind[] = [
+  "residential", "public", "commercial", "industrial",
+  "transport", "green", "water"
+]
 
 export function inferFeatureKind(geometryType: string, kindValue?: string): FeatureKind {
-  // 新格式优先
-  const validKinds: FeatureKind[] = [
-    "parcel_residential", "parcel_public", "parcel_commercial", "parcel_industrial",
-    "parcel_transport", "parcel_green", "parcel_water"
-  ]
-  if (kindValue && validKinds.includes(kindValue as FeatureKind)) {
-    return kindValue as FeatureKind
+  if (!kindValue) {
+    if (geometryType === "Point") return "poi"
+    if (geometryType === "LineString" || geometryType === "MultiLineString") return "road"
+    return "residential"
   }
-  // 兼容旧格式 → 自动映射到新格式
-  if (kindValue === "residential") return "parcel_residential"
-  if (kindValue === "commercial") return "parcel_commercial"
-  if (kindValue === "road") return "road"
-  if (kindValue === "poi") return "poi"
-
+  // 去掉旧的 parcel_ 前缀统一格式
+  const normalized = kindValue.startsWith("parcel_") ? kindValue.slice(7) : kindValue
+  if ((PARCEL_KINDS as string[]).includes(normalized)) return normalized as FeatureKind
+  if (normalized === "road") return "road"
+  if (normalized === "poi") return "poi"
+  // 兜底
   if (geometryType === "Point") return "poi"
-  if (geometryType === "LineString" || geometryType === "MultiLineString") return "road"
-  return "parcel_residential"
+  if (geometryType === "LineString") return "road"
+  return "residential"
 }
 
 /** 判断一个 kind 是否为地块类型（需要多边形绘制） */
 export function isParcelKind(kind: FeatureKind): boolean {
-  return kind.startsWith("parcel_") || kind === "residential" || kind === "commercial"
+  return (PARCEL_KINDS as string[]).includes(kind)
 }
 
 export type PoiSource = "manual" | "amap" | "osm" | "brand_official" | "dianping"
@@ -612,13 +611,13 @@ export interface ParcelDetail {
 
 /** 地块 FeatureKind 到默认建筑 subtype 的映射 */
 export function parcelKindToSubtype(kind: FeatureKind): string {
-  if (kind === "parcel_commercial" || kind === "commercial") return "mall"
-  if (kind === "parcel_residential" || kind === "residential") return "residential"
-  if (kind === "parcel_public") return "office"
-  if (kind === "parcel_industrial") return "other"
-  if (kind === "parcel_transport") return "road"
-  if (kind === "parcel_green") return "park"
-  if (kind === "parcel_water") return "river"
+  if (kind === "commercial") return "mall"
+  if (kind === "residential") return "residential"
+  if (kind === "public") return "office"
+  if (kind === "industrial") return "other"
+  if (kind === "transport") return "road"
+  if (kind === "green") return "park"
+  if (kind === "water") return "river"
   return "other"
 }
 

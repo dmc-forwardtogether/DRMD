@@ -103,13 +103,13 @@ function mapWaterClass(tags: Record<string, string>): string {
 
 /** 土地利用 → 地块类型映射 */
 const LANDUSE_PARCEL_MAP: Record<string, string> = {
-  residential: "parcel_residential",
-  commercial: "parcel_commercial",
-  retail: "parcel_commercial",
-  industrial: "parcel_industrial",
-  construction: "parcel_industrial",
-  brownfield: "parcel_industrial",
-  greenfield: "parcel_residential"
+  residential: "residential",
+  commercial: "commercial",
+  retail: "commercial",
+  industrial: "industrial",
+  construction: "industrial",
+  brownfield: "industrial",
+  greenfield: "residential"
 }
 
 // ============================================================

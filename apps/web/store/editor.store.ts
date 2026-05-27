@@ -3,14 +3,14 @@ import { defineStore } from "pinia"
 import type { FeatureKind, KindStyleConfig, SavedProject } from "~/types"
 
 export const DEFAULT_KIND_STYLES: KindStyleConfig[] = [
-  { kind: "parcel_residential", color: "#FFE033", visible: true },   // R 居住用地
-  { kind: "parcel_public", color: "#FF7A1E", visible: true },        // A 公共管理
-  { kind: "parcel_commercial", color: "#E60000", visible: true },    // B 商业设施
-  { kind: "parcel_industrial", color: "#E6A632", visible: true },    // M 工业用地
-  { kind: "parcel_transport", color: "#404040", visible: true },     // S 交通枢纽
-  { kind: "parcel_green", color: "#00B050", visible: true },         // G 绿地广场
-  { kind: "parcel_water", color: "#40A8E0", visible: true },         // E 水域特殊
-  { kind: "road", color: "#555555", visible: true }                  // 道路
+  { kind: "residential", color: "#FFE033", visible: true },   // R 居住用地
+  { kind: "public", color: "#FF7A1E", visible: true },        // A 公共管理
+  { kind: "commercial", color: "#E60000", visible: true },    // B 商业设施
+  { kind: "industrial", color: "#E6A632", visible: true },    // M 工业用地
+  { kind: "transport", color: "#404040", visible: true },     // S 交通枢纽
+  { kind: "green", color: "#00B050", visible: true },         // G 绿地广场
+  { kind: "water", color: "#40A8E0", visible: true },         // E 水域特殊
+  { kind: "road", color: "#555555", visible: true }           // 道路
 ]
 
 function cloneStyles(styles: KindStyleConfig[]): KindStyleConfig[] {
