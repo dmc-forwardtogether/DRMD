@@ -45,13 +45,13 @@ async function fetchProjects(): Promise<void> {
 
 async function handleProjectCreated(response: ProjectCreateResponse): Promise<void> {
   creatingProject.value = true
-  createError.value = ""
+  newProjectError.value = ""
   try {
     showCreateDialog.value = false
     await fetchProjects()
     await navigateTo(`/project/${response.project.id}`)
   } catch (error) {
-    createError.value = error instanceof Error ? error.message : "Failed to create project"
+    newProjectError.value = error instanceof Error ? error.message : "Failed to create project"
   } finally {
     creatingProject.value = false
   }
