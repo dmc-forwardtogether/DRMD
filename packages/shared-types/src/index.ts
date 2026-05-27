@@ -378,6 +378,125 @@ export interface AdminDistrict {
   extraJson: Record<string, unknown>
 }
 
+// ===== 项目创建 v2 =====
+
+export type ProjectSourceType = 'manual' | 'admin_district' | 'bbox'
+
+export interface BBox {
+  south: number
+  west: number
+  north: number
+  east: number
+}
+
+export interface ProjectCreateRequest {
+  name: string
+  srid?: number
+  /** 'admin_district' | 'bbox' | undefined (manual) */
+  sourceType?: ProjectSourceType
+  /** 行政区代码（sourceType='admin_district' 时必填） */
+  districtCode?: string
+  /** 手动框选范围（sourceType='bbox' 时必填） */
+  bbox?: BBox
+  /** 是否自动导入 OSM 数据 (默认 true) */
+  importOsm?: boolean
+  /** OSM 导入选项 */
+  osmOptions?: {
+    includeBuildings?: boolean
+    includeLanduse?: boolean
+  }
+}
+
+export interface ProjectCreateResponse {
+  project: {
+    id: number
+    name: string
+    srid: number
+    sourceType?: string
+    districtCode?: string
+    bounds?: GeoJSON.Polygon | null
+    createdAt: string
+    updatedAt: string
+  }
+  importResult?: {
+    featuresImported: number
+    stats: {
+      roads: number
+      railways: number
+      waterways: number
+      buildings: number
+      landuse: number
+    }
+    warnings: string[]
+  } | null
+}
+
+export interface OsmImportResponse {
+  featuresImported: number
+  stats: {
+    roads: number
+    railways: number
+    waterways: number
+    buildings: number
+    landuse: number
+  }
+  warnings: string[]
+}
+
+export interface ProjectLayer {
+  layerId: string
+  label: string
+  featureType: string
+  featureCount: number
+  visible: boolean
+  color: string
+}
+
+export interface ProjectLayersResponse {
+  projectId: number
+  layers: ProjectLayer[]
+  totalFeatures: number
+}
+
+/** 道路等级常量映射 */
+export const ROAD_CLASS_LABELS: Record<string, string> = {
+  motorway: "高速公路",
+  trunk: "快速路",
+  primary: "主干道",
+  secondary: "次干道",
+  tertiary: "支路",
+  residential: "街坊路",
+  service: "服务路",
+  pedestrian: "步道",
+  rail_hsr: "高铁",
+  rail_conventional: "普速铁路",
+  rail_metro: "地铁",
+  rail_tram: "轻轨",
+  water_river: "江河",
+  water_canal: "运河",
+  water_lake: "湖泊",
+  water_sea: "海洋"
+}
+
+export const ROAD_CLASS_COLORS: Record<string, string> = {
+  motorway: "#e63946",
+  trunk: "#f4a261",
+  primary: "#e9c46a",
+  secondary: "#2a9d8f",
+  tertiary: "#457b9d",
+  residential: "#a8dadc",
+  service: "#8d99ae",
+  pedestrian: "#b5838d",
+  rail_hsr: "#d00000",
+  rail_conventional: "#9d0208",
+  rail_metro: "#6a040f",
+  rail_tram: "#dc2f02",
+  water_river: "#0077b6",
+  water_canal: "#00b4d8",
+  water_lake: "#90e0ef",
+  water_sea: "#03045e"
+}
+
 // ===== 自定义错误类 =====
 
 export class AppError extends Error {

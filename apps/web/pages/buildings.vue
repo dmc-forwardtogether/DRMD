@@ -3,6 +3,8 @@ definePageMeta({ pageTransition: false })
 import { X, Building2, Store, Star, MapPin, Hash, TrendingUp, TrendingDown, Minus, ChevronRight, ExternalLink, Layers, Plus, Trash2, Settings, Search, Link2 } from "lucide-vue-next"
 import type { Entity, Brand, Structure, StructureCategory, FilterOption, ParcelStructure, ParcelStructureRelation } from "~/types"
 import FilterBar from "~/components/FilterBar.vue"
+import AppIcon from "~/components/AppIcon.vue"
+import { subtypeIcon, subtypeLabel, subtypeColor } from "~/utils/icons"
 import { useToast } from "~/composables/useToast"
 
 const { public: { apiBase } } = useRuntimeConfig()
@@ -461,8 +463,9 @@ onMounted(async () => {
           class="bg-white rounded-xl border border-slate-200 p-5 text-left hover:shadow-lg hover:border-indigo-300 transition-all group cursor-pointer"
         >
           <div class="flex items-start justify-between mb-2">
-            <span class="text-xs px-2 py-0.5 rounded font-medium" :class="catColor(s.structureSubtype)">
-              {{ catName(s.structureSubtype) }}
+            <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded font-medium" :class="subtypeColor(s.structureSubtype)">
+              <AppIcon :name="subtypeIcon(s.structureSubtype)" :size="12" />
+              {{ subtypeLabel(s.structureSubtype) }}
             </span>
             <ChevronRight class="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
@@ -477,8 +480,8 @@ onMounted(async () => {
             <div v-if="s.operatorEntityName" class="flex items-center gap-1">
               <Building2 class="w-3 h-3" /> {{ s.operatorEntityName }}
             </div>
-            <div v-if="s.parentStructureName" class="text-indigo-400">
-              📍 {{ s.parentStructureName }}内
+            <div v-if="s.parentStructureName" class="flex items-center gap-1 text-indigo-400">
+              <AppIcon name="mall" :size="12" /> {{ s.parentStructureName }}内
             </div>
           </div>
         </button>
@@ -499,11 +502,14 @@ onMounted(async () => {
           <!-- Modal Header -->
           <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
             <div class="flex items-center gap-3">
-              <span class="text-lg">{{ catName(selectedStructure.structureSubtype) === '商场' ? '🏬' : catName(selectedStructure.structureSubtype) === '店铺' ? '🏪' : '🏢' }}</span>
+              <AppIcon :name="subtypeIcon(selectedStructure.structureSubtype)" :size="28" :class="subtypeColor(selectedStructure.structureSubtype).split(' ')[0]" />
               <div>
                 <h2 class="text-xl font-bold text-slate-800">{{ selectedStructure.name || '(未命名)' }}</h2>
                 <p class="text-xs text-slate-400">
-                  <span class="px-1.5 py-0.5 rounded text-xs font-medium" :class="catColor(selectedStructure.structureSubtype)">{{ catName(selectedStructure.structureSubtype) }}</span>
+                  <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium" :class="subtypeColor(selectedStructure.structureSubtype)">
+                    <AppIcon :name="subtypeIcon(selectedStructure.structureSubtype)" :size="10" />
+                    {{ subtypeLabel(selectedStructure.structureSubtype) }}
+                  </span>
                   {{ selectedStructure.structureType === 'natural' ? '· 自然基底' : selectedStructure.structureType === 'hybrid' ? '· 改造景观' : '' }}
                 </p>
               </div>

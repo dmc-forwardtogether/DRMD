@@ -4,6 +4,8 @@ import { X, Building2, Store, Star, MapPin, ChevronRight, Layers, Plus, Search, 
 import type { Entity, EntityType, Brand, BrandType, BrandScoreInput, Structure, StructureCategory, FilterOption } from "~/types"
 import { useToast } from "~/composables/useToast"
 import FilterBar from "~/components/FilterBar.vue"
+import AppIcon from "~/components/AppIcon.vue"
+import { brandTypeIcon, brandTypeLabel as btLabel, brandTypeColor as btColor, subtypeIcon, subtypeLabel, subtypeColor, kindIcon } from "~/utils/icons"
 
 const { public: { apiBase } } = useRuntimeConfig()
 const configBase = `${apiBase}/api/config`
@@ -530,9 +532,10 @@ function brandIcon(brand: { name: string; icon?: string | null }): string {
             <div class="space-y-1 text-xs text-slate-500">
             <div class="flex items-center gap-1">
               <Building2 class="w-3 h-3" /> {{ b.entityName || '未分配' }}
-              <span v-if="b.brandType" class="ml-auto px-1.5 py-0.5 rounded text-xs font-medium"
-                :class="brandTypeClass(b.brandType)">
-                {{ brandTypeLabel(b.brandType) }}
+              <span v-if="b.brandType" class="ml-auto inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium"
+                :class="btColor(b.brandType)">
+                <AppIcon :name="brandTypeIcon(b.brandType)" :size="11" />
+                {{ btLabel(b.brandType) }}
               </span>
             </div>
             <div class="flex items-center justify-between">
@@ -604,8 +607,9 @@ function brandIcon(brand: { name: string; icon?: string | null }): string {
                 <p class="text-xs text-slate-400">
                   {{ selectedBrand.entityName }}
                   <span v-if="selectedBrand.brandType" class="ml-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium"
-                    :class="brandTypeClass(selectedBrand.brandType)">
-                    {{ brandTypeLabel(selectedBrand.brandType) }}
+                    :class="btColor(selectedBrand.brandType)">
+                    <AppIcon :name="brandTypeIcon(selectedBrand.brandType)" :size="11" />
+                    {{ btLabel(selectedBrand.brandType) }}
                   </span>
                   <span class="ml-2 inline-flex items-center gap-1 text-amber-600 font-medium">
                     <Star class="w-3 h-3 fill-amber-400" />{{ selectedBrand.totalScore ?? 3 }} 分
@@ -685,7 +689,7 @@ function brandIcon(brand: { name: string; icon?: string | null }): string {
                 <div class="grid grid-cols-2 gap-3 text-sm">
                   <div><span class="text-slate-400">名称</span><p class="font-medium text-slate-800">{{ selectedBrand.name }}</p></div>
                   <div><span class="text-slate-400">所属公司</span><p class="font-medium text-slate-800">{{ selectedBrand.entityName }}</p></div>
-                  <div><span class="text-slate-400">品牌类型</span><p class="font-medium text-slate-800">{{ brandTypeLabel(selectedBrand.brandType) || '—' }}</p></div>
+                  <div><span class="text-slate-400">品牌类型</span><p class="font-medium text-slate-800 flex items-center gap-1"><AppIcon v-if="selectedBrand.brandType" :name="brandTypeIcon(selectedBrand.brandType)" :size="14" /> {{ btLabel(selectedBrand.brandType) || '—' }}</p></div>
                   <div><span class="text-slate-400">品牌类别</span><p class="font-medium text-slate-800">{{ selectedBrand.category || '—' }}</p></div>
                   <div><span class="text-slate-400">店铺数</span><p class="font-medium text-slate-800">{{ brandStores.length }} 家</p></div>
                 </div>
@@ -732,7 +736,10 @@ function brandIcon(brand: { name: string; icon?: string | null }): string {
                               :key="store.id"
                               class="inline-flex items-center gap-1 px-2 py-1 bg-slate-50 border border-slate-200 rounded-full text-xs text-slate-600 hover:border-indigo-300 hover:bg-indigo-50 transition-colors cursor-default"
                             >
-                              <span class="text-[10px] px-1 py-0 rounded font-medium" :class="catColor(store.structureSubtype)">{{ catName(store.structureSubtype) }}</span>
+                              <span class="inline-flex items-center gap-0.5 text-[10px] px-1 py-0 rounded font-medium" :class="subtypeColor(store.structureSubtype)">
+                                <AppIcon :name="subtypeIcon(store.structureSubtype)" :size="10" />
+                                {{ subtypeLabel(store.structureSubtype) }}
+                              </span>
                               {{ store.name || '#' + store.id }}
                             </span>
                           </div>
@@ -779,9 +786,12 @@ function brandIcon(brand: { name: string; icon?: string | null }): string {
                   <div class="flex-1">
                     <p class="text-sm font-medium text-slate-800">{{ s.name || '(未命名)' }}</p>
                     <div class="flex items-center gap-2 text-xs text-slate-400">
-                      <span class="px-1 py-0 rounded" :class="catColor(s.structureSubtype)">{{ catName(s.structureSubtype) }}</span>
-                      <span v-if="s.parentStructureName">📍 {{ s.parentStructureName }}内</span>
-                      <span v-if="s.brandName" class="text-amber-600">🏷️ {{ s.brandName }}</span>
+                      <span class="inline-flex items-center gap-1 px-1 py-0 rounded" :class="subtypeColor(s.structureSubtype)">
+                        <AppIcon :name="subtypeIcon(s.structureSubtype)" :size="10" />
+                        {{ subtypeLabel(s.structureSubtype) }}
+                      </span>
+                      <span v-if="s.parentStructureName" class="flex items-center gap-1"><AppIcon name="mall" :size="10" /> {{ s.parentStructureName }}内</span>
+                      <span v-if="s.brandName" class="flex items-center gap-1 text-amber-600"><AppIcon name="brand" :size="10" /> {{ s.brandName }}</span>
                       <span v-else class="text-emerald-600">未关联品牌</span>
                     </div>
                   </div>
@@ -804,7 +814,10 @@ function brandIcon(brand: { name: string; icon?: string | null }): string {
                   <div class="flex-1">
                     <p class="text-sm font-medium text-slate-800">{{ f.name || '(未命名地图要素)' }}</p>
                     <div class="flex items-center gap-2 text-xs text-slate-400">
-                      <span class="px-1 py-0 rounded bg-slate-100 text-slate-600">{{ f.kind }}</span>
+                      <span class="inline-flex items-center gap-1 px-1 py-0 rounded bg-slate-100 text-slate-600">
+                        <AppIcon :name="kindIcon(f.kind)" :size="10" />
+                        {{ f.kind }}
+                      </span>
                       <span>{{ f.geometryType }}</span>
                       <span class="text-indigo-500">自动创建建筑</span>
                     </div>

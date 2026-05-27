@@ -429,6 +429,17 @@ defineExpose({
     draw.set(data)
     pushUpdate()
   },
+  setView(lng: number, lat: number, zoomLevel?: number) {
+    map?.flyTo({ center: [lng, lat], zoom: zoomLevel ?? (map?.getZoom() ?? 13), duration: 500 })
+  },
+  getView(): { lng: number; lat: number; zoom: number } | null {
+    if (!map) return null
+    const center = map.getCenter()
+    return { lng: center.lng, lat: center.lat, zoom: Math.round(map.getZoom() * 10) / 10 }
+  },
+  getMap(): maplibregl.Map | null {
+    return map
+  },
   centerToCurrentLocation(): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!map) {
