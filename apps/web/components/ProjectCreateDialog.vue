@@ -85,7 +85,7 @@ async function handleCreate(): Promise<void> {
   localError.value = ""
 
   if (!projectName.value.trim()) {
-    localError.value = "请输入项目名称"
+    localError.value = "Please enter a project name"
     return
   }
 
@@ -101,7 +101,7 @@ async function handleCreate(): Promise<void> {
 
   if (activeTab.value === "district") {
     if (!selectedDistrict.value) {
-      localError.value = "请选择城市/行政区"
+      localError.value = "Please select a city"
       return
     }
     payload.sourceType = "admin_district"
@@ -109,11 +109,11 @@ async function handleCreate(): Promise<void> {
   } else {
     const { south, west, north, east } = bbox.value
     if (south === 0 && west === 0 && north === 0 && east === 0) {
-      localError.value = "请输入有效的坐标范围"
+      localError.value = "Please enter valid coordinates"
       return
     }
     if (south >= north || west >= east) {
-      localError.value = "坐标范围无效：南<北，西<东"
+      localError.value = "Invalid bounds: south < north, west < east"
       return
     }
     payload.sourceType = "bbox"
@@ -127,7 +127,7 @@ async function handleCreate(): Promise<void> {
     })
     emit("created", response)
   } catch (error) {
-    const message = error instanceof Error ? error.message : "项目创建失败"
+    const message = error instanceof Error ? error.message : "Project creation failed"
     localError.value = message
   }
 }
@@ -169,7 +169,7 @@ watch(() => props.visible, (v) => {
           <div class="flex items-center justify-between">
             <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
               <Globe class="w-5 h-5 text-blue-600" />
-              创建新项目
+              New Project
             </h2>
             <button
               class="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
@@ -188,7 +188,7 @@ watch(() => props.visible, (v) => {
             @click="activeTab = 'district'"
           >
             <MapPin class="w-4 h-4 inline mr-1.5" />
-            按行政区
+            By District
           </button>
           <button
             class="pb-3 px-4 -mb-px text-sm font-medium transition-colors border-b-2"
@@ -198,7 +198,7 @@ watch(() => props.visible, (v) => {
             @click="activeTab = 'bbox'"
           >
             <Crosshair class="w-4 h-4 inline mr-1.5" />
-            手动框选
+            By Bounding Box
           </button>
         </div>
 
@@ -206,11 +206,11 @@ watch(() => props.visible, (v) => {
         <div class="px-6 py-4 space-y-4">
           <!-- Project Name -->
           <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1.5">项目名称</label>
+            <label class="block text-xs font-medium text-slate-600 mb-1.5">Project Name</label>
             <input
               v-model="projectName"
               type="text"
-              placeholder="例如：深圳南山科技园"
+              placeholder="e.g. Shenzhen Nanshan Tech Park"
               maxlength="80"
               class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
             />
@@ -218,11 +218,11 @@ watch(() => props.visible, (v) => {
 
           <!-- District Tab -->
           <div v-if="activeTab === 'district'">
-            <label class="block text-xs font-medium text-slate-600 mb-1.5">选择城市</label>
+            <label class="block text-xs font-medium text-slate-600 mb-1.5">Select City</label>
             <input
               v-model="districtSearch"
               type="text"
-              placeholder="搜索城市..."
+              placeholder="Search cities..."
               class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none mb-2"
             />
             <div class="max-h-40 overflow-y-auto border border-slate-200 rounded-lg">
@@ -240,27 +240,27 @@ watch(() => props.visible, (v) => {
                 v-if="filteredCities.length === 0"
                 class="px-3 py-4 text-center text-sm text-slate-400"
               >
-                未找到匹配的城市。请尝试手动框选。
+                No matching cities. Try Bounding Box instead.
               </div>
             </div>
             <p class="text-xs text-slate-400 mt-1.5">
-              DRMD 将自动从此城市的 OpenStreetMap 导入路网、建筑和地块数据。
+              DRMD will auto-import roads, buildings, and parcels from OpenStreetMap for the selected city.
             </p>
           </div>
 
           <!-- BBox Tab -->
           <div v-if="activeTab === 'bbox'">
             <p class="text-xs text-slate-500 mb-3">
-              输入经纬度范围定义项目区域。你也可以在进入编辑器后通过地图缩放来确定工作区域。
+              Define the project area by entering lat/lng bounds. You can refine the area in the editor later.
             </p>
 
             <!-- Quick presets -->
             <div class="flex gap-2 mb-3">
               <button
                 v-for="preset in [
-                  { key: 'beijing_center', label: '北京中心' },
-                  { key: 'shanghai_center', label: '上海中心' },
-                  { key: 'shenzhen_nanshan', label: '深圳南山' }
+                  { key: 'beijing_center', label: 'Beijing Center' },
+                  { key: 'shanghai_center', label: 'Shanghai Center' },
+                  { key: 'shenzhen_nanshan', label: 'Shenzhen Nanshan' }
                 ]"
                 :key="preset.key"
                 class="text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors"
@@ -314,14 +314,14 @@ watch(() => props.visible, (v) => {
 
           <!-- OSM Options -->
           <div class="border-t border-slate-100 pt-3">
-            <p class="text-xs font-medium text-slate-600 mb-2">OSM 导入选项</p>
+            <p class="text-xs font-medium text-slate-600 mb-2">OSM Import Options</p>
             <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer mb-2">
               <input
                 v-model="includeBuildings"
                 type="checkbox"
                 class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
               />
-              导入建筑轮廓
+              Import building footprints
             </label>
             <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
               <input
@@ -329,7 +329,7 @@ watch(() => props.visible, (v) => {
                 type="checkbox"
                 class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
               />
-              导入土地利用（自动生成地块）
+              Import land use (auto-generate parcels)
             </label>
           </div>
 
@@ -348,7 +348,7 @@ watch(() => props.visible, (v) => {
             class="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 font-medium transition-colors"
             @click="handleClose"
           >
-            取消
+            Cancel
           </button>
           <button
             class="px-5 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
@@ -356,7 +356,7 @@ watch(() => props.visible, (v) => {
             @click="handleCreate"
           >
             <Loader2 v-if="loading" class="w-4 h-4 animate-spin" />
-            <span>{{ loading ? '创建中...' : '创建项目' }}</span>
+            <span>{{ loading ? 'Creating...' : 'Create Project' }}</span>
           </button>
         </div>
       </div>

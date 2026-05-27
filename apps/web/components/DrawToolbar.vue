@@ -46,15 +46,15 @@ const modeTools = [
 ]
 
 const kindOptions = [
-  { kind: "parcel_residential" as FeatureKind, label: "住宅地块", icon: Square },
-  { kind: "parcel_commercial" as FeatureKind, label: "商业地块", icon: Building2 },
-  { kind: "parcel_mixed" as FeatureKind, label: "混合用地", icon: MapPin },
-  { kind: "road" as FeatureKind, label: "道路", icon: Waypoints }
+  { kind: "parcel_residential" as FeatureKind, label: "Residential", icon: Square },
+  { kind: "parcel_commercial" as FeatureKind, label: "Commercial", icon: Building2 },
+  { kind: "parcel_mixed" as FeatureKind, label: "Mixed Use", icon: MapPin },
+  { kind: "road" as FeatureKind, label: "Road", icon: Waypoints }
 ]
 
 const kindGroups: Array<{ label: string; kinds: FeatureKind[] }> = [
-  { label: "地块", kinds: ["parcel_residential", "parcel_commercial", "parcel_mixed"] },
-  { label: "网络", kinds: ["road"] }
+  { label: "Parcels", kinds: ["parcel_residential", "parcel_commercial", "parcel_mixed"] },
+  { label: "Network", kinds: ["road"] }
 ]
 
 const kindOptionMap = computed(() => {

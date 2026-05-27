@@ -229,7 +229,9 @@ router.get("/projects/:projectId", async (req, res, next) => {
     const projectId = toPositiveInt(req.params.projectId)
     const result = await pool.query(
       `
-        SELECT id, name, srid, created_at, updated_at
+        SELECT id, name, srid,
+               center_lng AS "centerLng", center_lat AS "centerLat", zoom,
+               created_at, updated_at
         FROM projects
         WHERE id = $1
       `,
@@ -240,6 +242,94 @@ router.get("/projects/:projectId", async (req, res, next) => {
       return
     }
     res.json({ project: result.rows[0] })
+  } catch (error) {
+    next(error)
+  }
+})
+
+// ===== 编辑项目 =====
+
+const projectPatchSchema = z.object({
+  name: z.string().min(1).max(120).optional(),
+  bounds: bboxSchema.optional(),
+  centerLng: z.number().min(-180).max(180).optional(),
+  centerLat: z.number().min(-90).max(90).optional(),
+  zoom: z.number().min(0).max(22).optional()
+})
+
+router.patch("/projects/:projectId", async (req, res, next) => {
+  try {
+    const projectId = toPositiveInt(req.params.projectId)
+    const payload = projectPatchSchema.parse(req.body)
+
+    const sets: string[] = []
+    const values: (string | number)[] = []
+    let paramIndex = 1
+
+    if (payload.name) {
+      sets.push(`name = $${paramIndex++}`)
+      values.push(payload.name)
+    }
+
+    if (payload.bounds) {
+      const { south, west, north, east } = payload.bounds
+      const wkt = `POLYGON((${west} ${south},${east} ${south},${east} ${north},${west} ${north},${west} ${south}))`
+      sets.push(`bounds = ST_SetSRID(ST_GeomFromText('${wkt}'), 4326)`)
+    }
+
+    if (payload.centerLng !== undefined) {
+      sets.push(`center_lng = $${paramIndex++}`)
+      values.push(payload.centerLng)
+    }
+    if (payload.centerLat !== undefined) {
+      sets.push(`center_lat = $${paramIndex++}`)
+      values.push(payload.centerLat)
+    }
+    if (payload.zoom !== undefined) {
+      sets.push(`zoom = $${paramIndex++}`)
+      values.push(payload.zoom)
+    }
+
+    if (sets.length === 0) {
+      res.status(400).json({ error: "No fields to update" })
+      return
+    }
+
+    values.push(projectId)
+    const result = await pool.query(
+      `UPDATE projects SET ${sets.join(", ")} WHERE id = $${paramIndex}
+       RETURNING id, name, srid, source_type AS "sourceType", district_code AS "districtCode",
+                 ST_AsGeoJSON(bounds)::json AS bounds,
+                 center_lng AS "centerLng", center_lat AS "centerLat", zoom,
+                 created_at AS "createdAt", updated_at AS "updatedAt"`,
+      values
+    )
+
+    if (!result.rowCount) {
+      res.status(404).json({ error: "Project not found" })
+      return
+    }
+
+    res.json({ project: result.rows[0] })
+  } catch (error) {
+    next(error)
+  }
+})
+
+// ===== 删除项目 =====
+
+router.delete("/projects/:projectId", async (req, res, next) => {
+  try {
+    const projectId = toPositiveInt(req.params.projectId)
+    const result = await pool.query(
+      "DELETE FROM projects WHERE id = $1 RETURNING id, name",
+      [projectId]
+    )
+    if (!result.rowCount) {
+      res.status(404).json({ error: "Project not found" })
+      return
+    }
+    res.json({ deleted: result.rows[0] })
   } catch (error) {
     next(error)
   }
