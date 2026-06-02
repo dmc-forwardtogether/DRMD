@@ -17,5 +17,48 @@ services:
       timeout: 5s
       retries: 5
 
+  server:
+    image: node:20
+    container_name: drmd-server
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "8899:8899"
+    volumes:
+      - .:/app
+      - server_nm:/app/apps/server/node_modules
+      - root_nm:/app/node_modules
+      - shared_nm:/app/packages/shared-types/node_modules
+    environment:
+      - DATABASE_URL=postgresql://drmd:drmd@db:5432/drmd
+      - CORS_ORIGIN=http://localhost:3000
+      - PORT=8899
+    command: sh -c "npm install --ignore-scripts && npx tsx watch apps/server/src/index.ts"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: node:20
+    container_name: drmd-web
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - web_nm:/app/apps/web/node_modules
+      - root_nm:/app/node_modules
+      - shared_nm:/app/packages/shared-types/node_modules
+    environment:
+      - NUXT_PUBLIC_API_BASE=http://server:8899
+    command: sh -c "npm install --ignore-scripts && npx nuxi prepare && npx nuxi dev --port 3000"
+    depends_on:
+      - server
+
 volumes:
   drmd_pg_data:
+  server_nm:
+  web_nm:
+  root_nm:
+  shared_nm:

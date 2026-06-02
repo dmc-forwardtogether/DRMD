@@ -71,8 +71,7 @@ graph TD
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) ≥ 18
-- [Docker](https://www.docker.com/) (for PostgreSQL + PostGIS)
+- [Docker](https://www.docker.com/) (includes Node.js, PostgreSQL + PostGIS)
 - npm ≥ 9
 
 ### 1. Clone & Install
@@ -83,31 +82,20 @@ cd drmd
 npm install
 ```
 
-### 2. Start Database
+### 2. Start All Services
 
 ```bash
 docker-compose up -d
 ```
 
-This starts **PostgreSQL 16 + PostGIS 3.4** on port `5433`.
+This starts **all three services** in Docker containers:
+- PostgreSQL 16 + PostGIS 3.4 on port `5433`
+- Express API server on port `8899`
+- Nuxt web dev server on port `3000`
 
-### 3. Start the App
+First run will take a few minutes to install dependencies inside containers. Subsequent starts will be fast.
 
-```bash
-# Terminal 1: Express API server (port 8899)
-cd apps/server && npx tsx src/index.ts
-
-# Terminal 2: Nuxt dev server (port 3000)
-cd apps/web && npx nuxi dev
-```
-
-Or use the convenience script:
-
-```bash
-npm run dev
-```
-
-### 4. Open
+### 3. Open
 
 Navigate to **http://localhost:3000** 🎉
 
@@ -136,7 +124,7 @@ drmd/
 │       └── types/       # TypeScript definitions
 ├── packages/
 │   └── shared-types/    # Shared type definitions
-├── docker-compose.yml   # PostGIS container
+├── docker-compose.yml   # All services (DB + API + Web)
 └── docs/                # Architecture & roadmap
 ```
 

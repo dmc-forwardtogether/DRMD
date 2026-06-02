@@ -49,6 +49,10 @@ lerna-debug.log*
 # Docker volumes
 drmd_pg_data/
 
+# Screenshots & reasonix
+screenshots/
+.reasonix/
+
 # Storage (uploaded files, etc.)
 apps/server/storage/
 
